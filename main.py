@@ -4,10 +4,10 @@ import os
 from os import walk
 from skimage.transform import resize
 import random
-
+import math
 DS_DIR = "testsets/classic5"
 
-
+# 0-255 range
 def read_images(directory=""):
     directory += "./"
     filenames = next(walk(directory), (None, None, []))[2]
@@ -19,25 +19,35 @@ def read_images(directory=""):
         images.append(img)
     return images
 
+# placeholder
+def processImages(imgs):
+    processed = []
+    for img in imgs:
+        processed.append(img)
+    return processed
 
-def create_dataset(images):
-    # создаём датасет из картинок
-    # number = random.randint(0, len(images))
-    data_set = np.empty(shape=(len(images), len(images[0]), len(images[0][0]), 1), dtype=np.float32)
-    print(data_set.shape)
-    # data_set = np.empty([2, 2], dtype=int)
-    for n in range(0, len(images)):
-        for i in range(0, len(images[n])):
-            for j in range(0, len(images[n][i])):
-                data_set[n][i][j][0] = (images[n][i][j])
-        # data_set.append([inputImgs[n]])
-    return data_set
+def compareProcessed(imgsOriginal, imgsProcessed):
+    PSNRs = np.empty(shape=(len(imgsOriginal)), dtype=np.float32)
+    print("len:",len(imgsOriginal))
+    for i in range(0, len(imgsOriginal)):
+        mse = np.mean((imgsOriginal[i] - imgsProcessed[i]) ** 2)
+        if mse == 0:
+            PSNRs[i] = 100
+            continue
+        PIXEL_MAX = 255.0
 
-
+        PSNRs[i] = 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
+        print("weights:", PSNRs[i])
+    return PSNRs
+def changeImgTest(imgsOriginal):
+    images = []
+    for i in range(0, len(imgsOriginal)):
+        images.append(np.subtract(imgsOriginal[i], 0.1))
+    return images
 def readDS():
     images = read_images(DS_DIR)
-    dataset = create_dataset(images)
-    return dataset
+    print(compareProcessed(images, changeImgTest(images)))
+    return images
 
 
 if __name__ == '__main__':
