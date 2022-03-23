@@ -5,7 +5,7 @@ from os import walk
 from skimage.transform import resize
 import random
 import math
-DS_DIR = "testsets/classic5"
+DS_DIR = "dataset/classic5"
 
 # 0-255 range
 def read_images(directory=""):
