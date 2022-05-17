@@ -1,16 +1,38 @@
-import ctypes
-from ctypes import CDLL
+import math
+import os
+from ctypes import *
+from os import walk
 
 import imageio
 import numpy as np
-import os
-from os import walk
-from skimage.transform import resize
-import random
-import math
-from ctypes import *
 
 DS_DIR = "dataset/classic5"
+
+
+class Comparator:
+    def __init__(self, dataset_path, weight, height, block_size, compression):
+        self.dataset_path = dataset_path
+        self.weight = weight
+        self.height = height
+        self.block_size = block_size
+        self.compression = compression
+        self.algorithms = list()
+        self.images = list()
+
+    def add_algo(self, algorithm):
+        self.algorithms.append(algorithm)
+
+    def list_images(self):
+        files = os.listdir(self.dataset_path)
+        for file in files:
+            self.images.append(file)
+
+    def run(self):
+        for algorithm in self.algorithms:
+            processed_images = []
+            for image in self.images:
+                processed_images.append(algorithm.run(f'{self.dataset_path}/{image}', self.weight, self.height,
+                                                      self.compression))
 
 
 # 0-255 range
@@ -74,18 +96,18 @@ def readDS():
     images = read_images(DS_DIR)
     print(compareProcessed(images, changeImgTest(images)))
     cfft = CFFT()
-    cfft.run("dataset/classic5/baboon.bmp",500,500,10,10)
+    cfft.run("dataset/classic5/baboon.bmp", 500, 500, 10, 10)
     return images
 
 
 class CFFT:
     def __init__(self):
-        self.cfft = load_plugin("plugins/CFFT.so")
+        self.lib = load_plugin("plugins/CFFT.so")
 
     def run(self, image_path, width, height, block, value):
         result = []
-        print(vars(self.cfft))
-        result = self.cfft.CFFT(image_path, width, height, value, result)
+        print(vars(self.lib))
+        result = self.lib.CFFT(image_path, width, height, block, value, result)
         return result
 
 
@@ -94,4 +116,10 @@ def load_plugin(path):
 
 
 if __name__ == '__main__':
-    readDS()
+    comparator = Comparator(DS_DIR, 512, 512, 10, 10)
+    comparator.list_images()
+
+    cfft = CFFT()
+    comparator.add_algo(cfft)
+
+    comparator.run()
