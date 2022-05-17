@@ -1,3 +1,5 @@
+from ctypes import CDLL
+
 import imageio
 import numpy as np
 import os
@@ -70,6 +72,20 @@ def readDS():
     images = read_images(DS_DIR)
     print(compareProcessed(images, changeImgTest(images)))
     return images
+
+
+class CFFT:
+    def __init__(self):
+        self.cfft = load_plugin("plugins/CFFT.so")
+
+    def run(self, image_path, width, height, block, value):
+        result = []
+        result = self.cfft(image_path, width, height, value, result)
+        return result
+
+
+def load_plugin(path):
+    return CDLL(path)
 
 
 if __name__ == '__main__':
