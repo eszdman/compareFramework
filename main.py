@@ -1,3 +1,4 @@
+import ctypes
 from ctypes import CDLL
 
 import imageio
@@ -7,6 +8,7 @@ from os import walk
 from skimage.transform import resize
 import random
 import math
+from ctypes import *
 
 DS_DIR = "dataset/classic5"
 
@@ -71,6 +73,8 @@ def changeImgTest(images_original):
 def readDS():
     images = read_images(DS_DIR)
     print(compareProcessed(images, changeImgTest(images)))
+    cfft = CFFT()
+    cfft.run("dataset/classic5/baboon.bmp",500,500,10,10)
     return images
 
 
@@ -80,12 +84,13 @@ class CFFT:
 
     def run(self, image_path, width, height, block, value):
         result = []
-        result = self.cfft(image_path, width, height, value, result)
+        print(vars(self.cfft))
+        result = self.cfft.CFFT(image_path, width, height, value, result)
         return result
 
 
 def load_plugin(path):
-    return CDLL(path)
+    return cdll.LoadLibrary(path)
 
 
 if __name__ == '__main__':
