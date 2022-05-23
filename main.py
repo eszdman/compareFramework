@@ -102,7 +102,7 @@ def readDS():
 
 class CFFT:
     def __init__(self):
-        self.lib = load_plugin("plugins/CFFT.so")
+        self.lib = load_plugin(r"plugins/CFFT/application/CFFT.dll")
 
     def run(self, image_path, width, height, block, value):
         result = []
