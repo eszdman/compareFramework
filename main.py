@@ -1,5 +1,6 @@
 import math
 import os
+import sys
 from ctypes import *
 from os import walk
 
@@ -95,14 +96,15 @@ def changeImgTest(images_original):
 def readDS():
     images = read_images(DS_DIR)
     print(compareProcessed(images, changeImgTest(images)))
-    cfft = CFFT()
+    cfft = CFFT_algorithm()
     cfft.run("dataset/classic5/baboon.bmp", 500, 500, 10, 10)
     return images
 
 
-class CFFT:
+class CFFT_algorithm:
     def __init__(self):
-        self.lib = load_plugin(r"plugins/CFFT/application/CFFT.dll")
+        sys.path.insert(1, "C:\\Program Files\\MATLAB\\MATLAB Runtime\\v912\\bin\\win64\\")
+        self.lib = load_plugin(r"plugins/CFFT/CFFT.dll")
 
     def run(self, image_path, width, height, block, value):
         result = []
@@ -119,7 +121,7 @@ if __name__ == '__main__':
     comparator = Comparator(DS_DIR, 512, 512, 10, 10)
     comparator.list_images()
 
-    cfft = CFFT()
+    cfft = CFFT_algorithm()
     comparator.add_algo(cfft)
 
     comparator.run()

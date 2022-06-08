@@ -119,11 +119,9 @@ def load_sampling_matrix(CS_ratio):
     return data
 
 
-def get_val_result(model, CS_ratio, phaseNum, save_path, is_cuda=False):
+def get_val_result(model, CS_ratio, phaseNum, save_path, test_set_path, is_cuda=False):
     with torch.no_grad():
-        # test_set_path = "dataset/bsds500/test"
-        test_set_path = "./dataset/Set11"
-        test_set_path = glob.glob(test_set_path + '/*.tif')
+        test_set_path = glob.glob(test_set_path + r'/*.tif')
         ImgNum = len(test_set_path)
         PSNR_All = np.zeros([1, ImgNum], dtype=np.float32)
         SSIM_All = np.zeros([1, ImgNum], dtype=np.float32)
@@ -158,16 +156,16 @@ def get_val_result(model, CS_ratio, phaseNum, save_path, is_cuda=False):
             PSNR_All[0, img_no] = rec_PSNR
             rec_SSIM = compute_ssim(aaa, Iorg)
             SSIM_All[0, img_no] = rec_SSIM
-            imgname_for_save = (imgName.split('/')[-1]).split('.')[0]
+            imgname_for_save = (imgName.split('\\')[-1]).split('.')[0]
             imsave(os.path.join(save_path, imgname_for_save + '_' + str(rec_PSNR) + '_' + str(rec_SSIM) + '.jpg'), aaa)
         return np.mean(PSNR_All), np.mean(SSIM_All)
 
 
 if __name__ == "__main__":
     model_name = "AMP_Net_K"
-    CS_ratios = [30]
+    CS_ratios = [50]
     Phases = [2, 4, 6, 9]
-    phase = 6
+    phase = 9
 
     save_path = "./results/generated_images"
 results_saving_path = "./results/generated_images"
@@ -190,6 +188,6 @@ model = AMP_net_Deblock(phase, A)
 model.cpu()
 model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
 print("Start")
-one_psnr, one_ssim = get_val_result(model, CS_ratio, phase, sub_save_path, is_cuda=False)  # test AMP_net
+one_psnr, one_ssim = get_val_result(model, CS_ratio, phase, sub_save_path, r'.\dataset\Set11')  # test AMP_net
 
 print(one_psnr, "dB", one_ssim)

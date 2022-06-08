@@ -173,7 +173,7 @@ def train(model, opt, train_loader, epoch, batch_size, CS_ratio, PhaseNum):
 def get_val_result(model, PhaseNum, save_path, is_cuda=True):
     model.eval()
     with torch.no_grad():
-        # test_set_path = "./dataset/Set11"
+        # test_set_path = "./dataset/dataset"
         test_set_path = "./dataset/bsds500/test"
         test_set_path = glob.glob(test_set_path + '/*.tif')
         ImgNum = len(test_set_path)
