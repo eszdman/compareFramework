@@ -1,14 +1,14 @@
-from dataset import dataset_full
-import os
-import numpy as np
 import glob
-from utils import *
-from scipy import io
+import os
+
 import torch
-from torch.nn import Module
+from scipy import io
+from skimage.io import imsave
 from torch import nn
 from torch.autograd import Variable
-from skimage.io import imsave
+from torch.nn import Module
+
+from utils import *
 
 
 class Denoiser(Module):
@@ -168,26 +168,26 @@ if __name__ == "__main__":
     phase = 9
 
     save_path = "./results/generated_images"
-results_saving_path = "./results/generated_images"
-for CS_ratio in CS_ratios:
-    for phase in Phases:
-        if not os.path.exists(save_path):
-            os.mkdir(save_path)
-        sub_save_path = os.path.join(results_saving_path, str(CS_ratio))
-        if not os.path.exists(sub_save_path):
-            os.mkdir(sub_save_path)
-        sub_save_path = os.path.join(results_saving_path, str(phase))
-        if not os.path.exists(sub_save_path):
-            os.mkdir(sub_save_path)
+    results_saving_path = "./results/generated_images"
+    for CS_ratio in CS_ratios:
+        for phase in Phases:
+            if not os.path.exists(save_path):
+                os.mkdir(save_path)
+            sub_save_path = os.path.join(results_saving_path, str(CS_ratio))
+            if not os.path.exists(sub_save_path):
+                os.mkdir(sub_save_path)
+            sub_save_path = os.path.join(results_saving_path, str(phase))
+            if not os.path.exists(sub_save_path):
+                os.mkdir(sub_save_path)
 
-path = os.path.join("results", model_name, str(CS_ratio), str(phase), "best_model.pkl")
+    path = os.path.join("results", model_name, str(CS_ratio), str(phase), "best_model.pkl")
 
-A = load_sampling_matrix(CS_ratio)
+    A = load_sampling_matrix(CS_ratio)
 
-model = AMP_net_Deblock(phase, A)
-model.cpu()
-model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
-print("Start")
-one_psnr, one_ssim = get_val_result(model, CS_ratio, phase, sub_save_path, r'.\dataset\Set11')  # test AMP_net
+    model = AMP_net_Deblock(phase, A)
+    model.cpu()
+    model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
+    print("Start")
+    one_psnr, one_ssim = get_val_result(model, CS_ratio, phase, sub_save_path, r'.\dataset\Set11')  # test AMP_net
 
-print(one_psnr, "dB", one_ssim)
+    print(one_psnr, "dB", one_ssim)

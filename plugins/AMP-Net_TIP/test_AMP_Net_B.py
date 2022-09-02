@@ -245,7 +245,7 @@ A = load_sampling_matrix(CS_ratio)
 
 model = AMP_net_Deblock(phase, A)
 model.cpu()
-model.load_state_dict(torch.load(path,map_location=torch.device('cpu')))
+model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
 print("Start")
 one_psnr, one_ssim = get_val_result(model, phase, sub_save_path, is_cuda=False)  # test AMP_net
 

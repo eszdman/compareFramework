@@ -1,4 +1,4 @@
-from dataset import dataset_full,dataset
+from dataset import dataset_full, dataset
 import os
 import numpy as np
 import glob
@@ -14,6 +14,7 @@ No mask training, no deblocking
 AMP-Net-K
 """
 
+
 class Denoiser(Module):
     def __init__(self):
         super().__init__()
@@ -26,14 +27,15 @@ class Denoiser(Module):
                                nn.Conv2d(32, 32, 3, padding=1),
 
                                nn.ReLU(),
-                               nn.Conv2d(32, 1, 3, padding=1,bias=False))
+                               nn.Conv2d(32, 1, 3, padding=1, bias=False))
 
     def forward(self, inputs):
-        inputs = torch.unsqueeze(torch.reshape(torch.transpose(inputs,0,1),[-1,33,33]),dim=1)
+        inputs = torch.unsqueeze(torch.reshape(torch.transpose(inputs, 0, 1), [-1, 33, 33]), dim=1)
         output = self.D(inputs)
         # output=inputs-output
-        output = torch.transpose(torch.reshape(torch.squeeze(output),[-1,33*33]),0,1)
+        output = torch.transpose(torch.reshape(torch.squeeze(output), [-1, 33 * 33]), 0, 1)
         return output
+
 
 class Deblocker(Module):
     def __init__(self):
@@ -47,46 +49,47 @@ class Deblocker(Module):
                                nn.Conv2d(32, 32, 3, padding=1),
 
                                nn.ReLU(),
-                               nn.Conv2d(32, 1, 3, padding=1,bias=False))
+                               nn.Conv2d(32, 1, 3, padding=1, bias=False))
 
     def forward(self, inputs):
-        inputs = torch.unsqueeze(inputs,dim=1)
+        inputs = torch.unsqueeze(inputs, dim=1)
         output = self.D(inputs)
-        output = torch.squeeze(output,dim=1)
+        output = torch.squeeze(output, dim=1)
         return output
 
+
 class AMP_net_Deblock(Module):
-    def __init__(self,layer_num, A):
+    def __init__(self, layer_num, A):
         super().__init__()
         self.layer_num = layer_num
         self.denoisers = []
         self.steps = []
-        self.register_parameter("A",nn.Parameter(torch.from_numpy(A).float(),requires_grad=False))
+        self.register_parameter("A", nn.Parameter(torch.from_numpy(A).float(), requires_grad=False))
         self.register_parameter("Q", nn.Parameter(torch.from_numpy(np.transpose(A)).float(), requires_grad=True))
         for n in range(layer_num):
             self.denoisers.append(Denoiser())
-            self.register_parameter("step_" + str(n + 1), nn.Parameter(torch.tensor(1.0),requires_grad=False))
+            self.register_parameter("step_" + str(n + 1), nn.Parameter(torch.tensor(1.0), requires_grad=False))
             self.steps.append(eval("self.step_" + str(n + 1)))
-        for n,denoiser in enumerate(self.denoisers):
-            self.add_module("denoiser_"+str(n+1),denoiser)
+        for n, denoiser in enumerate(self.denoisers):
+            self.add_module("denoiser_" + str(n + 1), denoiser)
 
     def forward(self, inputs, output_layers):
-        H = int(inputs.shape[2]/33)
-        L = int(inputs.shape[3]/33)
+        H = int(inputs.shape[2] / 33)
+        L = int(inputs.shape[3] / 33)
         S = inputs.shape[0]
 
         y = self.sampling(inputs)
-        X = torch.matmul(self.Q,y)
+        X = torch.matmul(self.Q, y)
         for n in range(output_layers):
             step = self.steps[n]
             denoiser = self.denoisers[n]
 
-            z = self.block1(X, y,step)
+            z = self.block1(X, y, step)
             noise = denoiser(X)
             X = z - torch.matmul(
-                (step * torch.matmul(torch.transpose(self.A,0,1), self.A)) - torch.eye(33 * 33).float().cuda(), noise)
+                (step * torch.matmul(torch.transpose(self.A, 0, 1), self.A)) - torch.eye(33 * 33).float().cuda(), noise)
 
-            X = self.together(X,S,H,L)
+            X = self.together(X, S, H, L)
             X = torch.cat(torch.split(X, split_size_or_sections=33, dim=1), dim=0)
             X = torch.cat(torch.split(X, split_size_or_sections=33, dim=2), dim=0)
             X = torch.transpose(torch.reshape(X, [-1, 33 * 33]), 0, 1)
@@ -94,28 +97,27 @@ class AMP_net_Deblock(Module):
         X = self.together(X, S, H, L)
         return torch.unsqueeze(X, dim=1)
 
-
-    def sampling(self,inputs):
+    def sampling(self, inputs):
         # inputs = torch.squeeze(inputs)
         # inputs = torch.reshape(inputs,[-1,33*33])  
-        inputs = torch.squeeze(inputs,dim=1)
+        inputs = torch.squeeze(inputs, dim=1)
         inputs = torch.cat(torch.split(inputs, split_size_or_sections=33, dim=1), dim=0)
         inputs = torch.cat(torch.split(inputs, split_size_or_sections=33, dim=2), dim=0)
-        inputs = torch.transpose(torch.reshape(inputs, [-1, 33*33]),0,1)
+        inputs = torch.transpose(torch.reshape(inputs, [-1, 33 * 33]), 0, 1)
         outputs = torch.matmul(self.A, inputs)
         return outputs
 
-    def block1(self,X,y,step):
+    def block1(self, X, y, step):
         # X = torch.squeeze(X)
         # X = torch.transpose(torch.reshape(X, [-1, 33 * 33]),0,1)  
-        outputs = torch.matmul(torch.transpose(self.A,0,1),y-torch.matmul(self.A,X))
+        outputs = torch.matmul(torch.transpose(self.A, 0, 1), y - torch.matmul(self.A, X))
         outputs = step * outputs + X
         # outputs = torch.unsqueeze(torch.reshape(torch.transpose(outputs,0,1),[-1,33,33]),dim=1)
         return outputs
 
-    def together(self,inputs,S,H,L):
-        inputs = torch.reshape(torch.transpose(inputs,0,1),[-1,33,33])
-        inputs = torch.cat(torch.split(inputs, split_size_or_sections=H*S, dim=0), dim=2)
+    def together(self, inputs, S, H, L):
+        inputs = torch.reshape(torch.transpose(inputs, 0, 1), [-1, 33, 33])
+        inputs = torch.cat(torch.split(inputs, split_size_or_sections=H * S, dim=0), dim=2)
         inputs = torch.cat(torch.split(inputs, split_size_or_sections=S, dim=0), dim=1)
         return inputs
 
@@ -146,42 +148,43 @@ def get_loss(outputs, noise_all, Xs, H, target, sigma=0.01):
 
     return loss1, loss2
 
-def train(model, opt, train_loader, epoch, batch_size, CS_ratio,PhaseNum):
+
+def train(model, opt, train_loader, epoch, batch_size, CS_ratio, PhaseNum):
     model.train()
     n = 0
-    for data,_ in train_loader:
+    for data, _ in train_loader:
         n = n + 1
         opt.zero_grad()
-        data = torch.unsqueeze(data,dim=1)
+        data = torch.unsqueeze(data, dim=1)
         data = Variable(data.float().cuda())
-        outputs= model(data,PhaseNum)
+        outputs = model(data, PhaseNum)
 
         # loss_all = compute_loss(outputs,data)
         # loss = get_final_loss(loss_all)
         # loss = torch.mean((outputs[-1]-target)**2)
 
-        loss = torch.mean((outputs-data)**2)
+        loss = torch.mean((outputs - data) ** 2)
         loss.backward()
         opt.step()
         if n % 25 == 0:
             output = "CS_ratio: %d [%02d/%02d] loss: %.4f " % (
-            CS_ratio, epoch, batch_size * n, loss.data.item())
+                CS_ratio, epoch, batch_size * n, loss.data.item())
             print(output)
 
 
-def get_val_result(model,PhaseNum, is_cuda=True):
+def get_val_result(model, PhaseNum, is_cuda=True):
     model.eval()
     with torch.no_grad():
         test_set_path = "dataset/bsds500/val"
         test_set_path = glob.glob(test_set_path + '/*.tif')
-        ImgNum = len(test_set_path)  
+        ImgNum = len(test_set_path)
         PSNR_All = np.zeros([1, ImgNum], dtype=np.float32)
         model.eval()
         for img_no in range(ImgNum):
-            imgName = test_set_path[img_no]  
+            imgName = test_set_path[img_no]
 
             [Iorg, row, col, Ipad, row_new, col_new] = imread_CS_py(imgName)
-            Icol = img2col_py(Ipad, 33) / 255.0  
+            Icol = img2col_py(Ipad, 33) / 255.0
             Ipad /= 255.0
             # Img_input = np.dot(Icol, Phi_input)  
             # Img_output = Icol
@@ -190,7 +193,7 @@ def get_val_result(model,PhaseNum, is_cuda=True):
             else:
                 inputs = Variable(torch.from_numpy(Ipad.astype('float32')))
 
-            inputs = torch.unsqueeze(torch.unsqueeze(inputs,dim=0),dim=0)
+            inputs = torch.unsqueeze(torch.unsqueeze(inputs, dim=0), dim=0)
             outputs = model(inputs, PhaseNumber)
             outputs = torch.squeeze(outputs)
             if is_cuda:
@@ -198,9 +201,9 @@ def get_val_result(model,PhaseNum, is_cuda=True):
             else:
                 outputs = outputs.data.numpy()
 
-            images_recovered = outputs[0:row,0:col]
+            images_recovered = outputs[0:row, 0:col]
             # images_recovered = col2im_CS_py(output, row, col, row_new, col_new)
-            rec_PSNR = psnr(images_recovered * 255, Iorg)  
+            rec_PSNR = psnr(images_recovered * 255, Iorg)
             PSNR_All[0, img_no] = rec_PSNR
 
     out = np.mean(PSNR_All)
@@ -213,24 +216,24 @@ def load_sampling_matrix(CS_ratio):
     return data
 
 
-def get_Q(data_set,A):
+def get_Q(data_set, A):
     A = torch.from_numpy(A)
     n = 0
     data_loader = torch.utils.data.DataLoader(data_set, batch_size=len(data_set),
-                                shuffle=True, num_workers=2)
+                                              shuffle=True, num_workers=2)
     for data, target in data_loader:
         data = torch.transpose(torch.reshape(data, [-1, 33 * 33]), 0, 1)
         target = torch.transpose(torch.reshape(target, [-1, 33 * 33]), 0, 1)
-        y = torch.matmul(A.float(),data.float())
+        y = torch.matmul(A.float(), data.float())
         x = target.float()
-        if n==0:
+        if n == 0:
             ys = y
             Xs = x
             n = 1
         else:
-            ys = torch.cat([ys,y],dim=1)
-            Xs = torch.cat([Xs,x],dim=1)
-    Q = torch.matmul(torch.matmul(Xs,torch.transpose(ys,0,1)),
+            ys = torch.cat([ys, y], dim=1)
+            Xs = torch.cat([Xs, x], dim=1)
+    Q = torch.matmul(torch.matmul(Xs, torch.transpose(ys, 0, 1)),
                      torch.inverse(torch.matmul(ys, torch.transpose(ys, 0, 1))))
     return Q.numpy()
 
@@ -257,7 +260,7 @@ if __name__ == "__main__":
     if not os.path.exists(results_saving_path):
         os.mkdir(results_saving_path)
 
-    print('Load Data...')  
+    print('Load Data...')
 
     train_dataset = dataset(train=True, transform=None,
                             target_transform=None)
@@ -267,7 +270,7 @@ if __name__ == "__main__":
     for CS_ratio in CS_ratios:
         for PhaseNumber in PhaseNumbers:
             A = load_sampling_matrix(CS_ratio)
-            model = AMP_net_Deblock(PhaseNumber,A)
+            model = AMP_net_Deblock(PhaseNumber, A)
             opt = torch.optim.Adam(model.parameters(), lr=learning_rate)
             model.cuda()
             sub_path = os.path.join(results_saving_path, str(CS_ratio))
@@ -280,7 +283,7 @@ if __name__ == "__main__":
                 os.mkdir(sub_path)
             best_psnr = 0
             for epoch in range(1, EpochNum + 1):
-                train(model, opt, train_loader, epoch, batch_size, CS_ratio,PhaseNumber)
+                train(model, opt, train_loader, epoch, batch_size, CS_ratio, PhaseNumber)
                 one_psnr = get_val_result(model, PhaseNumber)
                 print_str = "CS_ratio: %d Phase: %d epoch: %d  psnr: %.4f" % (CS_ratio, PhaseNumber, epoch, one_psnr)
                 print(print_str)
