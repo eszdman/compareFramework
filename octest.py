@@ -1,12 +1,9 @@
-from oct2py import Oct2Py
+import os
+from oct2py import octave
 
-oc = Oct2Py()
+CFFT_PATH = os.path.join(os.getcwd(), "plugins", "cfft")
 
-script = "function y = myScript(x)\n" \
-         "    y = x-5" \
-         "end"
-
-with open("myScript.m", "w+") as f:
-    f.write(script)
-
-oc.myScript(7)
+octave.eval("pkg load image")
+octave.addpath(CFFT_PATH)
+result = octave.CFFT(os.path.join(CFFT_PATH, "dataset", "barbara.tif"), 256, 256, 16, 100)
+print(result)
