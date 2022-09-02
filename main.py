@@ -1,13 +1,14 @@
-import math
 import os
 import sys
-from ctypes import *
-from os import walk
-
+import math
 import imageio
 import numpy as np
+from os import walk
+from ctypes import *
+from oct2py import Oct2Py
 
 DS_DIR = "dataset/classic5"
+CFFT_PATH = os.path.join(os.getcwd(), "plugins", "cfft")
 
 
 class Comparator:
@@ -29,11 +30,15 @@ class Comparator:
             self.images.append(file)
 
     def run(self):
+        results = dict()
         for algorithm in self.algorithms:
             processed_images = []
             for image in self.images:
-                processed_images.append(algorithm.run(f'{self.dataset_path}/{image}', self.weight, self.height,
-                                                      self.compression))
+                processed_images.append(
+                    algorithm.run(f'{self.dataset_path}/{image}', self.weight, self.height, self.block_size,
+                                  self.compression))
+            results[algorithm] = processed_images
+        return results
 
 
 # 0-255 range
@@ -103,25 +108,21 @@ def readDS():
 
 class CFFT_algorithm:
     def __init__(self):
-        sys.path.insert(1, "C:\\Program Files\\MATLAB\\MATLAB Runtime\\v912\\bin\\win64\\")
-        self.lib = load_plugin(r"plugins/CFFT/CFFT.dll")
+        global CFFT_PATH
+        self.octave = Oct2Py()
+        self.octave.eval("pkg load image")
+        self.octave.addpath(CFFT_PATH)
 
     def run(self, image_path, width, height, block, value):
-        result = []
-        print(vars(self.lib))
-        result = self.lib.CFFT(image_path, width, height, block, value, result)
-        return result
-
-
-def load_plugin(path):
-    return cdll.LoadLibrary(path)
+        return self.octave.CFFT(image_path, width, height, block, value)
 
 
 if __name__ == '__main__':
-    comparator = Comparator(DS_DIR, 512, 512, 10, 10)
+    comparator = Comparator(os.path.join(CFFT_PATH, "dataset"), 256, 256, 16, 100)
     comparator.list_images()
 
     cfft = CFFT_algorithm()
     comparator.add_algo(cfft)
 
-    comparator.run()
+    result = comparator.run()
+    print(result)
