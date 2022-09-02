@@ -1,12 +1,10 @@
-import math
 import os
-import imageio
+import math
 import numpy as np
-from os import walk
 from PIL import Image
 from oct2py import Oct2Py
 
-DS_DIR = "dataset/classic5"
+PIXEL_MAX = 255.0
 CFFT_PATH = os.path.join(os.getcwd(), "plugins", "cfft")
 
 
@@ -41,40 +39,15 @@ class Comparator:
         return results
 
 
-# 0-255 range
-def read_images(directory="."):
-    directory += "/"
-    filenames = next(walk(directory), (None, None, []))[2]
-    images = []
-    for file in filenames:
-        img = imageio.imread(directory + file)
-        # if resize needed
-        # img = resize(img,(TileSize,TileSize))
-        images.append(img)
-    return images
+class CFFT_algorithm:
+    def __init__(self):
+        global CFFT_PATH
+        self.octave = Oct2Py()
+        self.octave.eval("pkg load image")
+        self.octave.addpath(CFFT_PATH)
 
-
-# placeholder
-def processImages(images):
-    processed = []
-    for image in images:
-        processed.append(image)
-    return processed
-
-
-def equalize(image, number_bins=256):
-    # get image histogram
-    image_histogram, bins = np.histogram(image.flatten(), number_bins, density=True)
-    cdf = image_histogram.cumsum()  # cumulative distribution function
-    cdf = 255 * cdf / cdf[-1]  # normalize
-
-    # use linear interpolation of cdf to find new pixel values
-    image_equalized = np.interp(image.flatten(), bins[:-1], cdf)
-
-    return image_equalized.reshape(image.shape)
-
-
-PIXEL_MAX = 255.0
+    def run(self, image_path, width, height, block, value):
+        return self.octave.CFFT(image_path, width, height, block, value)
 
 
 def compareProcessed(images_original, images_processed):
@@ -89,32 +62,6 @@ def compareProcessed(images_original, images_processed):
         PSNRs[i] = 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
         print("weights:", PSNRs[i])
     return PSNRs
-
-
-def changeImgTest(images_original):
-    images = []
-    for i in range(0, len(images_original)):
-        images.append(np.subtract(images_original[i], 0.1))
-    return images
-
-
-def readDS():
-    images = read_images(DS_DIR)
-    print(compareProcessed(images, changeImgTest(images)))
-    cfft = CFFT_algorithm()
-    cfft.run("dataset/classic5/baboon.bmp", 500, 500, 10, 10)
-    return images
-
-
-class CFFT_algorithm:
-    def __init__(self):
-        global CFFT_PATH
-        self.octave = Oct2Py()
-        self.octave.eval("pkg load image")
-        self.octave.addpath(CFFT_PATH)
-
-    def run(self, image_path, width, height, block, value):
-        return self.octave.CFFT(image_path, width, height, block, value)
 
 
 if __name__ == '__main__':
