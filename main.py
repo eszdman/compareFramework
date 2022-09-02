@@ -1,10 +1,9 @@
-import os
-import sys
 import math
+import os
 import imageio
 import numpy as np
 from os import walk
-from ctypes import *
+from PIL import Image
 from oct2py import Oct2Py
 
 DS_DIR = "dataset/classic5"
@@ -34,9 +33,10 @@ class Comparator:
         for algorithm in self.algorithms:
             processed_images = []
             for image in self.images:
-                processed_images.append(
-                    algorithm.run(f'{self.dataset_path}/{image}', self.weight, self.height, self.block_size,
-                                  self.compression))
+                processed_images.append([image,
+                                         algorithm.run(os.path.join(self.dataset_path, image), self.weight, self.height,
+                                                       self.block_size,
+                                                       self.compression)])
             results[algorithm] = processed_images
         return results
 
@@ -125,4 +125,9 @@ if __name__ == '__main__':
     comparator.add_algo(cfft)
 
     result = comparator.run()
+    for algorithm in result.keys():
+        for name, image_array in result[algorithm]:
+            name = name.split('.')[0] + '.png'
+            image = Image.fromarray(image_array)
+            image.save(os.path.join(CFFT_PATH, "results", name))
     print(result)
