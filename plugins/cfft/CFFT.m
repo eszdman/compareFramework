@@ -16,3 +16,6 @@ reconstruction = assembleBlocks(real(reconstructed_blocks), BLOCK_SIZE, ...
                                IMAGE_SIZE, OVERLAP_PERCENT);
 res = uint8(reconstruction);
 end
+
+% res =CFFT("dataset/barbara.tif", 256, 256, 16, 100)
+% imwrite(res, "results/barbara_res.png")
