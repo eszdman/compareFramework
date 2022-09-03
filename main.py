@@ -79,6 +79,8 @@ class CFFT_algorithm:
     def save_processed_images(self, path):
         for image_data in self.processed_images:
             image = Image.fromarray(image_data[1])
+            if image.mode != 'RGB':  # pay attention to this line
+                image = image.convert('RGB')  # also this line
             image_name = self.name + '_' + image_data[0].split('.')[0] + ".png"
             image.save(os.path.join(path, "results", image_name))
 

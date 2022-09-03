@@ -5,7 +5,7 @@ BLOCK_SIZE = block;
 RATIO = ratio;
 OVERLAP_PERCENT = 0.5;
 % Import the image.
-img = imresize(rgb2gray(imread(imagepath)), IMAGE_SIZE);
+img = imresize(imread(imagepath), IMAGE_SIZE);
 k = RATIO * BLOCK_SIZE * BLOCK_SIZE;
 blocks = getBlocks(img, BLOCK_SIZE, OVERLAP_PERCENT);
 [M, N, B] = size(blocks);
