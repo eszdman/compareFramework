@@ -5,17 +5,15 @@ BLOCK_SIZE = block;
 RATIO = ratio;
 OVERLAP_PERCENT = 0.5;
 % Import the image.
-img = imresize((imread(imagepath)), IMAGE_SIZE);
+img = imresize(rgb2gray(imread(imagepath)), IMAGE_SIZE);
 k = RATIO * BLOCK_SIZE * BLOCK_SIZE;
 blocks = getBlocks(img, BLOCK_SIZE, OVERLAP_PERCENT);
-[M, N, X] = size(blocks);
+[M, N, B] = size(blocks);
 [fourier_basis, block_coefficients] = compressFourierL0(blocks, k);
 reconstructed_blocks = reconstructBlocks(fourier_basis, block_coefficients, ...
                                         M, N);
 reconstruction = assembleBlocks(real(reconstructed_blocks), BLOCK_SIZE, ...
                                IMAGE_SIZE, OVERLAP_PERCENT);
-res = uint8(reconstruction);
-end
+res = reconstruction;
 
-% res =CFFT("dataset/barbara.tif", 256, 256, 16, 100)
-% imwrite(res, "results/barbara_res.png")
+end

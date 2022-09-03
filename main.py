@@ -84,7 +84,7 @@ class CFFT_algorithm:
 
 
 if __name__ == '__main__':
-    comparator = Comparator(os.path.join(CFFT_PATH, "dataset"), 16, 100)
+    comparator = Comparator(os.path.join(CFFT_PATH, "dataset"), 50, 0.2)
     comparator.list_images()
     comparator.load_images()
 

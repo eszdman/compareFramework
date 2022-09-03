@@ -12,6 +12,6 @@ function basis = computeFourierBasis(N)
         basis_vector = ifft(dummy_vector);
         
         % Append to the basis matrix.
-        basis(:, i) = real(basis_vector);
+        basis(:, i) = basis_vector;
     end
 end

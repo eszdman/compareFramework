@@ -7,7 +7,7 @@ function [fourier_basis, block_coefficients] = compressFourierL0(blocks, k)
     for i = 1:B
        block = blocks(:, :, i);
        coefficients = blockFourierL0(block, k);
-       block_coefficients(:, i) = real(coefficients);
+       block_coefficients(:, i) = coefficients;
     end
     
     fourier_basis = computeFourierBasis(M * N);
