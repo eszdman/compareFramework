@@ -23,11 +23,13 @@ class Comparator:
     def list_images(self):
         files = os.listdir(self.dataset_path)
         for file in files:
-            self.images_paths.append(file)
+            if os.path.isfile(os.path.join(self.dataset_path, file)):
+                self.images_paths.append(file)
 
     def load_images(self):
         for image_path in self.images_paths:
-            image = Image.open(os.path.join(self.dataset_path, image_path))
+            path = os.path.join(self.dataset_path, image_path)
+            image = Image.open(path)
             self.images_original.append(image)
 
     def run(self):
@@ -37,6 +39,7 @@ class Comparator:
                                                 self.images_original[i].height,
                                                 self.block_size, self.compression)
                 algorithm.processed_images.append([image, processed_image])
+                algorithm.save_processed_images(self.dataset_path)
 
     def compareProcessed(self):
         for algorithm in self.algorithms:
@@ -55,6 +58,7 @@ class Comparator:
 
 class CFFT_algorithm:
     def __init__(self):
+        self.name = "CFFT"
         self.psnrs = list()
         self.processed_images = list()
 
@@ -67,10 +71,16 @@ class CFFT_algorithm:
         return self.octave.CFFT(image_path, width, height, block, value)
 
     def print(self):
-        print("CFFT")
+        print(self.name)
         for i in range(len(self.processed_images)):
             print(self.processed_images[i][0], self.psnrs[i])
         print()
+
+    def save_processed_images(self, path):
+        for image_data in self.processed_images:
+            image = Image.fromarray(image_data[1])
+            image_name = self.name + '_' + image_data[0].split('.')[0] + ".png"
+            image.save(os.path.join(path, "results", image_name))
 
 
 if __name__ == '__main__':
@@ -84,9 +94,3 @@ if __name__ == '__main__':
     comparator.run()
     comparator.compareProcessed()
     comparator.print()
-    # for algorithm in result.keys():
-    #     for name, image_array in result[algorithm]:
-    #         name = name.split('.')[0] + '.png'
-    #         image = Image.fromarray(image_array)
-    #         image.save(os.path.join(CFFT_PATH, "results", name))
-    # print(result)
