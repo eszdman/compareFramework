@@ -42,10 +42,10 @@ class Comparator:
                 algorithm.save_processed_images(self.dataset_path)
 
     def compareProcessed(self):
-        clahe = cv.createCLAHE(clipLimit = 2.0, tileGridSize=(8,8))
+        clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         for algorithm in self.algorithms:
             for i in range(0, len(self.images_paths)):
-                algorithm.processed_images[i] = clahe.apply(algorithm.processed_images[i])
+                algorithm.processed_images[i] = clahe.apply(np.asarray(algorithm.processed_images[i]))
                 mse = np.mean((np.asarray(self.images_original[i]) - algorithm.processed_images[i][1]) ** 2)
                 if mse == 0:
                     algorithm.psnrs.append(100)
@@ -64,9 +64,9 @@ class Algorithm:
         self.psnrs = list()
         self.processed_images = list()
 
-        global CFFT_PATH
         self.octave = Oct2Py()
         self.octave.eval("pkg load image")
+        self.octave.eval("pkg load signal")
         self.octave.addpath(path)
 
     def print(self):
@@ -95,21 +95,20 @@ class CFFT_algorithm(Algorithm):
 class CDCT_algorithm(Algorithm):
     def __init__(self):
         super().__init__("CDCT", os.path.join(os.getcwd(), "plugins", "cfft"))
-        self.octave.eval("pkg load signal")
 
     def run(self, image_path, width, height, block, value):
         return self.octave.CFFT(image_path, width, height, block, value)
 
 
 if __name__ == '__main__':
-    comparator = Comparator(os.path.join(CFFT_PATH, "dataset"), 50, 0.01)
+    comparator = Comparator(os.path.join(os.getcwd(), "plugins", "cfft", "dataset"), 50, 0.01)
     comparator.list_images()
     comparator.load_images()
 
     cfft = CFFT_algorithm()
-    cdct = CDCT_algorithm()
+    # cdct = CDCT_algorithm()
     comparator.add_algo(cfft)
-    comparator.add_algo(cdct)
+    # comparator.add_algo(cdct)
 
     comparator.run()
     comparator.compareProcessed()
