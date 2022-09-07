@@ -3,6 +3,7 @@ import math
 import numpy as np
 from PIL import Image
 from oct2py import Oct2Py
+import cv2 as cv
 
 PIXEL_MAX = 255.0
 CFFT_PATH = os.path.join(os.getcwd(), "plugins", "cfft")
@@ -42,8 +43,10 @@ class Comparator:
                 algorithm.save_processed_images(self.dataset_path)
 
     def compareProcessed(self):
+        clahe = cv.createCLAHE(clipLimit = 2.0, tileGridSize=(8,8))
         for algorithm in self.algorithms:
             for i in range(0, len(self.images_paths)):
+                algorithm.processed_images[i] = clahe.apply(algorithm.processed_images[i])
                 mse = np.mean((np.asarray(self.images_original[i]) - algorithm.processed_images[i][1]) ** 2)
                 if mse == 0:
                     algorithm.psnrs.append(100)
@@ -86,7 +89,7 @@ class CFFT_algorithm:
 
 
 if __name__ == '__main__':
-    comparator = Comparator(os.path.join(CFFT_PATH, "dataset"), 50, 0.2)
+    comparator = Comparator(os.path.join(CFFT_PATH, "dataset"), 50, 0.01)
     comparator.list_images()
     comparator.load_images()
 
