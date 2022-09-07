@@ -5,7 +5,6 @@ from PIL import Image
 from oct2py import Oct2Py
 
 PIXEL_MAX = 255.0
-CFFT_PATH = os.path.join(os.getcwd(), "plugins", "cfft")
 
 
 class Comparator:
@@ -56,19 +55,15 @@ class Comparator:
             algorithm.print()
 
 
-class CFFT_algorithm:
-    def __init__(self):
-        self.name = "CFFT"
+class Algorithm:
+    def __init__(self, name, path):
+        self.name = name
         self.psnrs = list()
         self.processed_images = list()
 
-        global CFFT_PATH
         self.octave = Oct2Py()
         self.octave.eval("pkg load image")
-        self.octave.addpath(CFFT_PATH)
-
-    def run(self, image_path, width, height, block, value):
-        return self.octave.CFFT(image_path, width, height, block, value)
+        self.octave.addpath(path)
 
     def print(self):
         print(self.name)
@@ -85,13 +80,32 @@ class CFFT_algorithm:
             image.save(os.path.join(path, "results", image_name))
 
 
+class CFFT_algorithm(Algorithm):
+    def __init__(self):
+        super().__init__("CFFT", os.path.join(os.getcwd(), "plugins", "cfft"))
+
+    def run(self, image_path, width, height, block, value):
+        return self.octave.CDCT(image_path, width, height, block, value)
+
+
+class CDCT_algorithm(Algorithm):
+    def __init__(self):
+        super().__init__("CDCT", os.path.join(os.getcwd(), "plugins", "cfft"))
+        self.octave.eval("pkg load signal")
+
+    def run(self, image_path, width, height, block, value):
+        return self.octave.CFFT(image_path, width, height, block, value)
+
+
 if __name__ == '__main__':
-    comparator = Comparator(os.path.join(CFFT_PATH, "dataset"), 50, 0.2)
+    comparator = Comparator(os.path.join(os.getcwd(), "plugins", "cfft", "dataset"), 50, 0.2)
     comparator.list_images()
     comparator.load_images()
 
     cfft = CFFT_algorithm()
+    cdct = CDCT_algorithm()
     comparator.add_algo(cfft)
+    comparator.add_algo(cdct)
 
     comparator.run()
     comparator.compareProcessed()
