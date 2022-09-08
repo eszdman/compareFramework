@@ -40,6 +40,7 @@ class Comparator:
             data = np.asarray(self.images_original[i]).astype("uint8")
             data = clahe.apply(data)
             self.images_original_data.append(data)
+            self.save_processed_image(self.dataset_path, 'BASE', image_name.split('.')[0], data)
         # run algorithms with different specified parameters
         for algorithm in self.algorithms:
             print(algorithm.algorithm_name)
@@ -50,14 +51,22 @@ class Comparator:
                 processed_image = processed_image.astype("uint8")
                 processed_image = clahe.apply(processed_image)
                 psnr = self.compareProcessed(i, processed_image)
-                print(image_name, psnr)
                 algorithm.save_processed_image(self.dataset_path, image_name.split('.')[0], processed_image)
+                print(image_name, psnr)
 
     def compareProcessed(self, i, processed_image):
         mse = np.mean((self.images_original_data[i] - processed_image) ** 2)
         if mse == 0:
             return 100
         return 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
+
+    def save_processed_image(self, path, prefix, name, image):
+        image = Image.fromarray(image)
+        image_name = prefix + '_' + name + ".png"
+        save_path = os.path.join(path, "results", prefix)
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        image.save(os.path.join(save_path, image_name))
 
 
 class Algorithm:
