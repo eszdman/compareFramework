@@ -9,10 +9,8 @@ PIXEL_MAX = 255.0
 
 
 class Comparator:
-    def __init__(self, dataset_path, block_size, compression):
+    def __init__(self, dataset_path):
         self.dataset_path = dataset_path
-        self.block_size = block_size
-        self.compression = compression
         self.algorithms = list()
         self.images_paths = list()
         self.images_original = list()
@@ -35,12 +33,11 @@ class Comparator:
     def run(self):
         clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         for algorithm in self.algorithms:
-            print(algorithm.name)
+            print(algorithm.algorithm_name)
             for i, image_name in enumerate(self.images_paths):
                 processed_image = algorithm.run(os.path.join(self.dataset_path, image_name),
                                                 self.images_original[i].width,
-                                                self.images_original[i].height,
-                                                self.block_size, self.compression)
+                                                self.images_original[i].height)
                 processed_image = processed_image.astype("uint8")
                 processed_image = clahe.apply(processed_image)
                 psnr = self.compareProcessed(i, processed_image)
@@ -56,7 +53,7 @@ class Comparator:
 
 class Algorithm:
     def __init__(self, name, path):
-        self.name = name
+        self.algorithm_name = name
         self.psnrs = list()
         self.processed_images = list()
 
@@ -65,43 +62,49 @@ class Algorithm:
         self.octave.eval("pkg load signal")
         self.octave.addpath(path)
 
-    def print(self):
-        print(self.name)
-        for i in range(len(self.processed_images)):
-            print(self.processed_images[i][0], self.psnrs[i])
-        print()
-
     def save_processed_image(self, path, name, image):
         image = Image.fromarray(image)
-        if image.mode != 'RGB':  # pay attention to this line
-            image = image.convert('RGB')  # also this line
-        image_name = self.name + '_' + name + ".png"
-        image.save(os.path.join(path, "results", image_name))
+        # if image.mode != 'RGB':  # pay attention to this line
+        #     image = image.convert('RGB')  # also this line
+        image_name = self.algorithm_name + '_' + name + ".png"
+
+        save_path = os.path.join(path, "results", self.algorithm_name)
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        image.save(os.path.join(save_path, image_name))
 
 
-class CFFT_algorithm(Algorithm):
-    def __init__(self):
-        super().__init__("CFFT", os.path.join(os.getcwd(), "plugins", "cfft"))
+class CompressedSensing(Algorithm):
+    def __init__(self, name, block, value):
+        super().__init__(name, os.path.join(os.getcwd(), "plugins", "compressed_sensing"))
+        self.block = block
+        self.value = value
 
-    def run(self, image_path, width, height, block, value):
-        return self.octave.CDCT(image_path, width, height, block, value)
+
+class CFFT_algorithm(CompressedSensing):
+    def __init__(self, block, value):
+        super().__init__("CFFT", block, value)
+
+    def run(self, image_path, width, height):
+        return self.octave.CFFT(image_path, width, height, self.block, self.value)
 
 
-class CDCT_algorithm(Algorithm):
-    def __init__(self):
-        super().__init__("CDCT", os.path.join(os.getcwd(), "plugins", "cfft"))
+class CDCT_algorithm(CompressedSensing):
+    def __init__(self, block, value):
+        super().__init__("CDCT", block, value)
 
-    def run(self, image_path, width, height, block, value):
-        return self.octave.CFFT(image_path, width, height, block, value)
+    def run(self, image_path, width, height):
+        return self.octave.CDCT(image_path, width, height, self.block, self.value)
 
 
 if __name__ == '__main__':
-    comparator = Comparator(os.path.join(os.getcwd(), "plugins", "cfft", "dataset"), 50, 0.01)
+    comparator = Comparator(os.path.join(os.getcwd(), "dataset"))
     comparator.list_images()
     comparator.load_images()
 
-    cfft = CFFT_algorithm()
-    # cdct = CDCT_algorithm()
+    cfft = CFFT_algorithm(50, 0.2)
+    cdct = CDCT_algorithm(8, 0.2)
     comparator.add_algo(cfft)
-    # comparator.add_algo(cdct)
+    comparator.add_algo(cdct)
     comparator.run()
