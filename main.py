@@ -33,29 +33,25 @@ class Comparator:
             self.images_original.append(image)
 
     def run(self):
-        for algorithm in self.algorithms:
-            for i, image in enumerate(self.images_paths):
-                processed_image = algorithm.run(os.path.join(self.dataset_path, image), self.images_original[i].width,
-                                                self.images_original[i].height,
-                                                self.block_size, self.compression)
-                algorithm.processed_images.append([image, processed_image])
-                algorithm.save_processed_images(self.dataset_path)
-
-    def compareProcessed(self):
         clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         for algorithm in self.algorithms:
-            for i in range(0, len(self.images_paths)):
-                algorithm.processed_images[i] = clahe.apply(np.asarray(algorithm.processed_images[i]))
-                mse = np.mean((np.asarray(self.images_original[i]) - algorithm.processed_images[i][1]) ** 2)
-                if mse == 0:
-                    algorithm.psnrs.append(100)
-                    continue
+            print(algorithm.name)
+            for i, image_name in enumerate(self.images_paths):
+                processed_image = algorithm.run(os.path.join(self.dataset_path, image_name),
+                                                self.images_original[i].width,
+                                                self.images_original[i].height,
+                                                self.block_size, self.compression)
+                processed_image = processed_image.astype("uint8")
+                processed_image = clahe.apply(processed_image)
+                psnr = self.compareProcessed(i, processed_image)
+                print(image_name, psnr)
+                algorithm.save_processed_image(self.dataset_path, image_name.split('.')[0], processed_image)
 
-                algorithm.psnrs.append(20 * math.log10(PIXEL_MAX / math.sqrt(mse)))
-
-    def print(self):
-        for algorithm in self.algorithms:
-            algorithm.print()
+    def compareProcessed(self, i, processed_image):
+        mse = np.mean((np.asarray(self.images_original[i]) - processed_image) ** 2)
+        if mse == 0:
+            return 100
+        return 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
 
 
 class Algorithm:
@@ -75,13 +71,12 @@ class Algorithm:
             print(self.processed_images[i][0], self.psnrs[i])
         print()
 
-    def save_processed_images(self, path):
-        for image_data in self.processed_images:
-            image = Image.fromarray(image_data[1])
-            if image.mode != 'RGB':  # pay attention to this line
-                image = image.convert('RGB')  # also this line
-            image_name = self.name + '_' + image_data[0].split('.')[0] + ".png"
-            image.save(os.path.join(path, "results", image_name))
+    def save_processed_image(self, path, name, image):
+        image = Image.fromarray(image)
+        if image.mode != 'RGB':  # pay attention to this line
+            image = image.convert('RGB')  # also this line
+        image_name = self.name + '_' + name + ".png"
+        image.save(os.path.join(path, "results", image_name))
 
 
 class CFFT_algorithm(Algorithm):
@@ -109,7 +104,4 @@ if __name__ == '__main__':
     # cdct = CDCT_algorithm()
     comparator.add_algo(cfft)
     # comparator.add_algo(cdct)
-
     comparator.run()
-    comparator.compareProcessed()
-    comparator.print()
