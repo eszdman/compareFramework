@@ -1,7 +1,3 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Test script. Run Fourier L0 compression on an image.
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 function res = CDCT(imagepath, sizex, sizey, block, ratio)
 % Parameters.
 IMAGE_SIZE = [sizex, sizey];
@@ -16,5 +12,5 @@ blocks = getBlocks(img, BLOCK_SIZE, OVERLAP_PERCENT);
 [dct_basis, block_coefficients] = compressDCTL0(blocks, k);
 reconstructed_blocks = reconstructBlocks(dct_basis, block_coefficients, M, N);
 reconstruction = assembleBlocks(reconstructed_blocks, BLOCK_SIZE, IMAGE_SIZE, OVERLAP_PERCENT);
-res = reconstruction
+res = reconstruction;
 end
