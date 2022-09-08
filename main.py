@@ -1,5 +1,7 @@
 import os
 import math
+
+import cv2
 import numpy as np
 from PIL import Image
 from oct2py import Oct2Py
@@ -78,6 +80,18 @@ class CompressedSensing(Algorithm):
         self.value = value
 
 
+class JPEG_algorithm(CompressedSensing):
+    def __init__(self, value):
+        super().__init__("JPEG", 0, value)
+
+    def run(self, image_path, width, height):
+        encode_param = [int(cv.IMWRITE_JPEG_QUALITY), int(100 * self.value)]
+        img = cv.imread(image_path, 0)
+        _, enc = cv.imencode('.jpg', img, encode_param)
+        decimg = cv.imdecode(enc, 1)
+        return cv.cvtColor(decimg, cv.COLOR_BGR2GRAY)
+
+
 class CFFT_algorithm(CompressedSensing):
     def __init__(self, block, value):
         super().__init__("CFFT", block, value)
@@ -101,6 +115,8 @@ if __name__ == '__main__':
 
     cfft = CFFT_algorithm(50, 0.2)
     cdct = CDCT_algorithm(8, 0.2)
+    jpeg = JPEG_algorithm(0.2)
     comparator.add_algo(cfft)
     comparator.add_algo(cdct)
+    comparator.add_algo(jpeg)
     comparator.run()
