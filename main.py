@@ -48,7 +48,7 @@ class Comparator:
                 processed_image = algorithm.run(os.path.join(self.dataset_path, image_name),
                                                 self.images_original[i].width,
                                                 self.images_original[i].height)
-                processed_image = processed_image.astype("uint8")
+                processed_image = np.clip(processed_image, 0.0, 255.0).astype("uint8")
                 processed_image = clahe.apply(processed_image)
                 psnr = self.compareProcessed(i, processed_image)
                 algorithm.save_processed_image(self.dataset_path, image_name.split('.')[0], processed_image)
