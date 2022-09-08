@@ -16,6 +16,7 @@ class Comparator:
         self.algorithms = list()
         self.images_paths = list()
         self.images_original = list()
+        self.images_original_data = list()
 
     def add_algo(self, algorithm):
         self.algorithms.append(algorithm)
@@ -34,6 +35,12 @@ class Comparator:
 
     def run(self):
         clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        # prepare base images
+        for i, image_name in enumerate(self.images_paths):
+            data = np.asarray(self.images_original[i]).astype("uint8")
+            data = clahe.apply(data)
+            self.images_original_data.append(data)
+        # run algorithms with different specified parameters
         for algorithm in self.algorithms:
             print(algorithm.algorithm_name)
             for i, image_name in enumerate(self.images_paths):
@@ -47,7 +54,7 @@ class Comparator:
                 algorithm.save_processed_image(self.dataset_path, image_name.split('.')[0], processed_image)
 
     def compareProcessed(self, i, processed_image):
-        mse = np.mean((np.asarray(self.images_original[i]) - processed_image) ** 2)
+        mse = np.mean((self.images_original_data[i] - processed_image) ** 2)
         if mse == 0:
             return 100
         return 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
@@ -113,9 +120,9 @@ if __name__ == '__main__':
     comparator.list_images()
     comparator.load_images()
 
-    cfft = CFFT_algorithm(50, 0.2)
-    cdct = CDCT_algorithm(8, 0.2)
-    jpeg = JPEG_algorithm(0.2)
+    cfft = CFFT_algorithm(50, 0.8)
+    cdct = CDCT_algorithm(8, 0.8)
+    jpeg = JPEG_algorithm(0.8)
     comparator.add_algo(cfft)
     comparator.add_algo(cdct)
     comparator.add_algo(jpeg)
