@@ -64,12 +64,8 @@ class Algorithm:
 
     def save_processed_image(self, path, name, image):
         image = Image.fromarray(image)
-        # if image.mode != 'RGB':  # pay attention to this line
-        #     image = image.convert('RGB')  # also this line
         image_name = self.algorithm_name + '_' + name + ".png"
-
         save_path = os.path.join(path, "results", self.algorithm_name)
-
         if not os.path.exists(save_path):
             os.makedirs(save_path)
         image.save(os.path.join(save_path, image_name))
