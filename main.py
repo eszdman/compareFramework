@@ -70,15 +70,8 @@ class Comparator:
 
 
 class Algorithm:
-    def __init__(self, name, path):
+    def __init__(self, name):
         self.algorithm_name = name
-        self.psnrs = list()
-        self.processed_images = list()
-
-        self.octave = Oct2Py()
-        self.octave.eval("pkg load image")
-        self.octave.eval("pkg load signal")
-        self.octave.addpath(path)
 
     def save_processed_image(self, path, name, image):
         image = Image.fromarray(image)
@@ -89,18 +82,29 @@ class Algorithm:
         image.save(os.path.join(save_path, image_name))
 
 
-class CompressedSensing(Algorithm):
+class OctaveAlgorithm(Algorithm):
+    def __init__(self, name, path):
+        super().__init__(name)
+        self.octave = Oct2Py()
+        self.octave.eval("pkg load image")
+        self.octave.eval("pkg load signal")
+        self.octave.eval("pkg load cvx") # TODO: check this
+        self.octave.addpath(path)
+
+
+class CompressedSensing(OctaveAlgorithm):
     def __init__(self, name, block, value):
         super().__init__(name, os.path.join(os.getcwd(), "plugins", "compressed_sensing"))
         self.block = block
         self.value = value
 
 
-class JPEG_algorithm(CompressedSensing):
+class JPEG_algorithm(Algorithm):
     def __init__(self, value):
-        super().__init__("JPEG", 0, value)
+        super().__init__("JPEG")
+        self.value = value
 
-    def run(self, image_path, width, height):
+    def run(self, image_path, _, _1):
         encode_param = [int(cv.IMWRITE_JPEG_QUALITY), int(100 * self.value)]
         img = cv.imread(image_path, 0)
         _, enc = cv.imencode('.jpg', img, encode_param)
@@ -124,15 +128,25 @@ class CDCT_algorithm(CompressedSensing):
         return self.octave.CDCT(image_path, width, height, self.block, self.value)
 
 
+class L1_algorithm(CompressedSensing):
+    def __init__(self, block, value):
+        super().__init__("L1", block, value)
+
+    def run(self, image_path, width, height):
+        return self.octave.L1(image_path, width, height, self.block, self.value)
+
+
 if __name__ == '__main__':
     comparator = Comparator(os.path.join(os.getcwd(), "dataset"))
     comparator.list_images()
     comparator.load_images()
 
+    jpeg = JPEG_algorithm(0.8)
     cfft = CFFT_algorithm(50, 0.8)
     cdct = CDCT_algorithm(8, 0.8)
-    jpeg = JPEG_algorithm(0.8)
-    comparator.add_algo(cfft)
-    comparator.add_algo(cdct)
-    comparator.add_algo(jpeg)
+    l1 = L1_algorithm(8, 0.01)
+    # comparator.add_algo(jpeg)
+    # comparator.add_algo(cfft)
+    # comparator.add_algo(cdct)
+    comparator.add_algo(l1)
     comparator.run()
