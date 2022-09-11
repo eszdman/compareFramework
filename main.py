@@ -51,6 +51,7 @@ class Comparator:
                 processed_image = np.clip(processed_image, 0.0, 255.0).astype("uint8")
                 processed_image = clahe.apply(processed_image)
                 psnr = self.compareProcessed(i, processed_image)
+                algorithm.psnr.append(psnr)
                 algorithm.save_processed_image(self.dataset_path, image_name.split('.')[0], processed_image)
                 print(image_name, psnr)
 
@@ -72,6 +73,7 @@ class Comparator:
 class Algorithm:
     def __init__(self, name):
         self.algorithm_name = name
+        self.psnr = list()
 
     def save_processed_image(self, path, name, image):
         image = Image.fromarray(image)
@@ -88,7 +90,7 @@ class OctaveAlgorithm(Algorithm):
         self.octave = Oct2Py()
         self.octave.eval("pkg load image")
         self.octave.eval("pkg load signal")
-        self.octave.eval("pkg load cvx") # TODO: check this
+        # self.octave.eval("pkg load cvx") # TODO: check this
         self.octave.addpath(path)
 
 
@@ -144,9 +146,9 @@ if __name__ == '__main__':
     jpeg = JPEG_algorithm(0.8)
     cfft = CFFT_algorithm(50, 0.8)
     cdct = CDCT_algorithm(8, 0.8)
-    l1 = L1_algorithm(8, 0.01)
-    # comparator.add_algo(jpeg)
-    # comparator.add_algo(cfft)
-    # comparator.add_algo(cdct)
-    comparator.add_algo(l1)
+    # l1 = L1_algorithm(8, 0.01)
+    comparator.add_algo(jpeg)
+    comparator.add_algo(cfft)
+    comparator.add_algo(cdct)
+    # comparator.add_algo(l1)
     comparator.run()
