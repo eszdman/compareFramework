@@ -1,11 +1,13 @@
 import os
 import math
+from datetime import datetime
 
 import cv2
 import numpy as np
 from PIL import Image
 from oct2py import Oct2Py
 import cv2 as cv
+import pandas as pd
 
 PIXEL_MAX = 255.0
 
@@ -45,15 +47,26 @@ class Comparator:
         for algorithm in self.algorithms:
             print(algorithm.algorithm_name)
             for i, image_name in enumerate(self.images_paths):
+                start_time = datetime.now()
                 processed_image = algorithm.run(os.path.join(self.dataset_path, image_name),
                                                 self.images_original[i].width,
                                                 self.images_original[i].height)
+                working_time = datetime.now() - start_time
                 processed_image = np.clip(processed_image, 0.0, 255.0).astype("uint8")
                 processed_image = clahe.apply(processed_image)
                 psnr = self.compareProcessed(i, processed_image)
-                algorithm.psnr.append(psnr)
+                algorithm.psnrs.append(psnr)
+                algorithm.times.append(working_time)
                 algorithm.save_processed_image(self.dataset_path, image_name.split('.')[0], processed_image)
-                print(image_name, psnr)
+                print(image_name, psnr, working_time)
+
+    def save_results(self):
+        results = list()
+        # results.append(self.images_paths)
+        for algorithm in self.algorithms:
+            results.append(algorithm.psnrs)
+        df = pd.DataFrame(results, columns=self.images_paths, index=[algorithm.algorithm_name for algorithm in self.algorithms])
+        df.to_excel(os.path.join(self.dataset_path, 'results', 'report.xlsx'))
 
     def compareProcessed(self, i, processed_image):
         mse = np.mean((self.images_original_data[i] - processed_image) ** 2)
@@ -73,7 +86,8 @@ class Comparator:
 class Algorithm:
     def __init__(self, name):
         self.algorithm_name = name
-        self.psnr = list()
+        self.psnrs = list()
+        self.times = list()
 
     def save_processed_image(self, path, name, image):
         image = Image.fromarray(image)
@@ -152,3 +166,4 @@ if __name__ == '__main__':
     comparator.add_algo(cdct)
     # comparator.add_algo(l1)
     comparator.run()
+    comparator.save_results()
