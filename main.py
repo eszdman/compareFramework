@@ -1,13 +1,12 @@
-import os
 import math
+import os
 from datetime import datetime
 
-import cv2
+import cv2 as cv
 import numpy as np
+import pandas as pd
 from PIL import Image
 from oct2py import Oct2Py
-import cv2 as cv
-import pandas as pd
 
 PIXEL_MAX = 255.0
 
@@ -65,7 +64,8 @@ class Comparator:
         # results.append(self.images_paths)
         for algorithm in self.algorithms:
             results.append(algorithm.psnrs)
-        df = pd.DataFrame(results, columns=self.images_paths, index=[algorithm.algorithm_name for algorithm in self.algorithms])
+        df = pd.DataFrame(results, columns=self.images_paths,
+                          index=[algorithm.algorithm_name for algorithm in self.algorithms])
         df.to_excel(os.path.join(self.dataset_path, 'results', 'report.xlsx'))
 
     def compareProcessed(self, i, processed_image):
@@ -150,6 +150,79 @@ class L1_algorithm(CompressedSensing):
 
     def run(self, image_path, width, height):
         return self.octave.L1(image_path, width, height, self.block, self.value)
+
+
+def Utils(Algorithm):
+    def __init__(self, block, value, name):
+        super().__init__(name)
+
+    def loadImg(self, path, cosTiling=True):
+        image = cv.imread(path)
+        image = np.asarray(image).astype("uint8")
+        image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        size = 0
+        size2 = self.windowSize
+        if (cosTiling):
+            size = self.windowSize // 2
+            size2 = self.windowSize // 2
+        slices = self.rwindow(image, size2, size)
+        slices = slices.reshape(len(slices) * len(slices[0]), self.windowSize, self.windowSize)
+        return slices, image
+
+    def rwindow(self, arr, size, oversize=0):
+        dx = (size + oversize) - len(arr) % (size + oversize)
+        dy = (size + oversize) - len(arr[0]) % (size + oversize)
+        arr = np.pad(arr, ((dx // 2, (dx + 1) // 2), (dy // 2, (dy + 1) // 2)), 'symmetric')
+        wx = len(arr) // size
+        wy = len(arr[0]) // size
+        output = np.zeros([wx, wy, size + oversize, size + oversize], dtype=arr.dtype)
+        for i in range(wx - 1):
+            for j in range(wy - 1):
+                iw = i * size
+                jw = j * size
+                inp = arr[iw:(iw + size + oversize), jw:(jw + size + oversize)]
+                output[i, j] = inp
+        return output
+
+    def getDCT(self, tiles):
+        wsize = len(tiles[0])
+        dcttiles = np.zeros([len(tiles), wsize, wsize])
+        for i in range(len(tiles)):
+            imf = np.float32(tiles[i]) / 255.0  # float conversion/scale
+            dcttiles[i] = cv.dct(imf)
+        return dcttiles
+
+    def CompressWeights0(self, data, compression, tile):
+        self.windowSize = tile
+        cnt = 0
+        dct = getDCT(data)
+        for i in range(len(dct)):
+            for j in range(len(dct[i])):
+                for k in range(len(dct[i, j])):
+                    if np.abs(dct[i, j, k]) > compression:
+                        dct[i, j, k] = 0.0
+                        cnt += 1
+        return dct, cnt
+
+    def UnCompressWeights01(self, data):
+        return self.getIDCT(data)
+
+    def UnCompressWeights11(self, data):
+        return self.getIFFT(data)
+
+
+def DCT_CosinineWindow(Utils):
+    def __init__(self, block, value):
+        super().__init__("DCT_CosinineWindow")
+        self.block = block
+        self.value = value
+
+    def run(self, image_path, width, height):
+        image_data = self.loadImg(image_path, False)
+        compress, cnt = self.CompressWeights0(image_data, self.value, self.block)
+        inverse = self.UnCompressWeights01(compress)
+        result = self.cosineWindow(inverse, size)  # TODO: add size
+        return result, cnt
 
 
 if __name__ == '__main__':
