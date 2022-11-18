@@ -302,7 +302,7 @@ class Utils(Algorithm):
         for i in range(len(dct)):
             for j in range(len(dct[i])):
                 for k in range(len(dct[i, j])):
-                    if (np.abs(dct[i, j, k]) > compression):
+                    if np.abs(dct[i, j, k]) > compression:
                         dct[i, j, k] = 0.0
                         cnt += 1
         return dct, cnt
@@ -360,7 +360,7 @@ class DCT_CosinineWindow(Utils):
         image_data = self.loadImg(image_path, False)
         compress, cnt = self.CompressWeights0(image_data, self.value, self.block)
         inverse = self.UnCompressWeights01(compress)
-        result = self.cosineWindow(inverse, size)  # TODO: add size
+        result = self.cosineWindow(inverse, (width, height))  # TODO: add size
         return result, cnt
 
 
@@ -373,7 +373,7 @@ class FFT_CosineWindow(Utils):
         windowSize = self.tileSize
         compress, cnt = self.CompressWeights1(image_data, self.value, self.block)
         inverse = self.getIFFT(compress)
-        result = self.cosineWindow(inverse, size)
+        result = self.cosineWindow(inverse, (width, height))
         return result, cnt
 
 
@@ -385,7 +385,7 @@ class DWT_CosineWindow(Utils):
         image_data = self.loadImg(image_path, False)
         compress, cnt = self.CompressWeights2(image_data, self.value, self.block)
         inverse = self.getIDWT(compress)
-        result = self.cosineWindow(inverse, size)
+        result = self.cosineWindow(inverse, (width, height))
         return result, cnt
 
 
@@ -394,13 +394,16 @@ if __name__ == '__main__':
     comparator.list_images()
     comparator.load_images()
 
-    jpeg = JPEG_algorithm(0.8)
-    cfft = CFFT_algorithm(50, 0.8)
-    cdct = CDCT_algorithm(8, 0.8)
+    # jpeg = JPEG_algorithm(0.8)
+    # cfft = CFFT_algorithm(50, 0.8)
+    # cdct = CDCT_algorithm(8, 0.8)
+    dctcw = DCT_CosinineWindow(8, 0.8)
     # l1 = L1_algorithm(8, 0.01)
-    comparator.add_algo(jpeg)
-    comparator.add_algo(cfft)
-    comparator.add_algo(cdct)
+
+    # comparator.add_algo(jpeg)
+    # comparator.add_algo(cfft)
+    # comparator.add_algo(cdct)
+    comparator.add_algo(dctcw)
     # comparator.add_algo(l1)
     comparator.run()
     comparator.save_results()
