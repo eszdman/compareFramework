@@ -152,9 +152,11 @@ class L1_algorithm(CompressedSensing):
         return self.octave.L1(image_path, width, height, self.block, self.value)
 
 
-def Utils(Algorithm):
+class Utils(Algorithm):
     def __init__(self, block, value, name):
         super().__init__(name)
+        self.block = block
+        self.value = value
 
     def loadImg(self, path, cosTiling=True):
         image = cv.imread(path)
@@ -192,10 +194,53 @@ def Utils(Algorithm):
             dcttiles[i] = cv.dct(imf)
         return dcttiles
 
+    def getIDCT(self, tiles):
+        wsize = len(tiles[0])
+        idcttiles = np.zeros([len(tiles), wsize, wsize])
+        for i in range(len(tiles)):
+            imf = np.float32(tiles[i])
+            idcttiles[i] = cv.idct(imf) * 255.0
+        return idcttiles
+
+    def getDWT(self, tiles):
+        wsize = len(tiles[0])
+        dcttiles = np.zeros([len(tiles), wsize, wsize])
+        for i in range(len(tiles)):
+            imf = np.float32(tiles[i]) / 255.0  # float conversion/scale
+            dcttiles[i] = pywt.dwt2(imf, 'haar')
+        return dcttiles
+
+    def getIDWT(self, tiles):
+        wsize = len(tiles[0])
+        idcttiles = np.zeros([len(tiles), wsize, wsize])
+        for i in range(len(tiles)):
+            imf = np.float32(tiles[i])
+            idcttiles[i] = pywt.idwt2(imf) * 255.0
+        return idcttiles
+
+    def getFFT(self, tiles):
+        wsize = len(tiles[0])
+        ffttiles = np.zeros([len(tiles), wsize, wsize, 2])
+        for i in range(len(tiles)):
+            imf = np.float32(tiles[i]) / 255.0  # float conversion/scale
+            fft2 = np.fft.fft2(imf)
+            ffttiles[i] = np.stack([np.real(fft2), np.imag(fft2)], axis=-1)
+        return ffttiles
+
+    def getIFFT(self, tiles):
+        wsize = len(tiles[0])
+        fftitiles = np.zeros([len(tiles), wsize, wsize])
+        for i in range(len(tiles)):
+            tile = tiles[i]
+            tile = np.vectorize(complex)(tile[..., 0], tile[..., 1])
+            fft2 = np.fft.ifft2(tile)
+            fftitiles[i] = np.real(fft2) * 255.0
+        return fftitiles
+
     def CompressWeights0(self, data, compression, tile):
         self.windowSize = tile
         cnt = 0
-        dct = getDCT(data)
+        dct = self.getDCT(data)
         for i in range(len(dct)):
             for j in range(len(dct[i])):
                 for k in range(len(dct[i, j])):
@@ -204,6 +249,102 @@ def Utils(Algorithm):
                         cnt += 1
         return dct, cnt
 
+    def cosineWindow(self, arr, size):
+        x, y = size
+        window = self.windowSize // 2
+        weightv = np.array([self.weight(idx, window) for idx in range(window * 2)])
+        dx = self.windowSize - x % self.windowSize
+        dy = self.windowSize - y % self.windowSize
+        w00 = np.zeros([self.windowSize, self.windowSize])
+        w01 = np.zeros([self.windowSize, self.windowSize])
+        w10 = np.zeros([self.windowSize, self.windowSize])
+        w11 = np.zeros([self.windowSize, self.windowSize])
+        for i in range(self.windowSize):
+            for j in range(self.windowSize):
+                x0 = i % window + window
+                x1 = i % window
+                y0 = j % window + window
+                y1 = j % window
+                w00[x0][y0] = weightv[x0] * weightv[y0]
+                w01[x1][y0] = weightv[x1] * weightv[y0]
+                w10[x0][y1] = weightv[x0] * weightv[y1]
+                w11[x1][y1] = weightv[x1] * weightv[y1]
+        dx0 = dx // 2
+        dy0 = dy // 2
+        xo = x + dx
+        yo = y + dy
+        output = np.zeros([xo, yo], dtype=arr.dtype)
+        arr = arr.reshape(xo // window, yo // window, self.windowSize, self.windowSize)
+        for i in range(xo // window):
+            for j in range(yo // window):
+                x0 = window + window
+                x1 = window
+                y0 = window + window
+                y1 = window
+                v00 = self.getTile(arr, i - 1, j - 1)[x1:x0, y1:y0]
+                v01 = self.getTile(arr, i, j - 1)[0:x1, y1:y0]
+                v10 = self.getTile(arr, i - 1, j)[x1:x0, 0:y1]
+                v11 = self.getTile(arr, i, j)[0:x1, 0:y1]
+                W00 = w00[x1:x0, y1:y0]
+                W01 = w01[0:x1, y1:y0]
+                W10 = w10[x1:x0, 0:y1]
+                W11 = w11[0:x1, 0:y1]
+                output[i * window:(i + 1) * window, j * window:(j + 1) * window] = (
+                        W00 * v00 + W01 * v01 + W10 * v10 + W11 * v11)
+
+        return output[dx0:x + dx0, dy0:y + dy0]
+
+    def CompressWeights0(self, data, compression, tile):
+        global windowSize
+        windowSize = tile
+        cnt = 0
+        dct = self.getDCT(data)
+        for i in range(len(dct)):
+            for j in range(len(dct[i])):
+                for k in range(len(dct[i, j])):
+                    if (np.abs(dct[i, j, k]) > compression):
+                        dct[i, j, k] = 0.0
+                        cnt += 1
+        return dct, cnt
+
+    def CompressWeights1(self, data, compression, tile):
+        global windowSize
+        windowSize = tile
+        cnt = 0
+        dct = self.getFFT(data)
+        for i in range(len(dct)):
+            for j in range(len(dct[i])):
+                for k in range(len(dct[i, j])):
+                    if np.abs(dct[i, j, k, 0]) + np.abs(dct[i, j, k, 1]) > compression:
+                        dct[i, j, k, 0] = 0.0
+                        dct[i, j, k, 1] = 0.0
+                        cnt += 1
+        return dct, cnt
+
+    def CompressWeights2(self, data, compression, tile):
+        global windowSize
+        windowSize = tile
+        cnt = 0
+        dct = self.getDWT(data)
+        for i in range(len(dct)):
+            for j in range(len(dct[i])):
+                for k in range(len(dct[i, j])):
+                    if np.abs(dct[i, j, k]) > compression:
+                        dct[i, j, k] = 0.0
+                        cnt += 1
+        return dct, cnt
+
+    def CompressWeights1(self, data, compression, tile):
+        global windowSize
+        windowSize = tile
+        dct = self.getDCT(data)
+        for i in range(len(dct)):
+            for j in range(len(dct[i])):
+                for k in range(len(dct[i, j])):
+                    dct[i, j, k] = (((i * i + j * j)) / (len(dct[i]) ** 2 + len(dct[i, j]) ** 2) > compression) * dct[
+                        i, j, k]
+        return dct
+
     def UnCompressWeights01(self, data):
         return self.getIDCT(data)
 
@@ -211,17 +352,40 @@ def Utils(Algorithm):
         return self.getIFFT(data)
 
 
-def DCT_CosinineWindow(Utils):
+class DCT_CosinineWindow(Utils):
     def __init__(self, block, value):
-        super().__init__("DCT_CosinineWindow")
-        self.block = block
-        self.value = value
+        super().__init__(block, value, "DCT_CosinineWindow")
 
     def run(self, image_path, width, height):
         image_data = self.loadImg(image_path, False)
         compress, cnt = self.CompressWeights0(image_data, self.value, self.block)
         inverse = self.UnCompressWeights01(compress)
         result = self.cosineWindow(inverse, size)  # TODO: add size
+        return result, cnt
+
+
+class FFT_CosineWindow(Utils):
+    def __init__(self, block, value):
+        super().__init__(block, value, "DCT_CosinineWindow")
+
+    def run(self, image_path, width, height):
+        image_data = self.loadImg(image_path, False)
+        windowSize = self.tileSize
+        compress, cnt = self.CompressWeights1(image_data, self.value, self.block)
+        inverse = self.getIFFT(compress)
+        result = self.cosineWindow(inverse, size)
+        return result, cnt
+
+
+class DWT_CosineWindow(Utils):
+    def __init__(self, block, value):
+        super().__init__(block, value, "DCT_CosinineWindow")
+
+    def run(self, image_path, width, height):
+        image_data = self.loadImg(image_path, False)
+        compress, cnt = self.CompressWeights2(image_data, self.value, self.block)
+        inverse = self.getIDWT(compress)
+        result = self.cosineWindow(inverse, size)
         return result, cnt
 
 
