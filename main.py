@@ -246,11 +246,18 @@ class Utils(Algorithm):
         for i in range(len(dct)):
             for j in range(len(dct[i])):
                 for k in range(len(dct[i, j])):
-                    if np.abs(dct[i, j, k]) > compression:
+                    if np.abs(dct[i, j, k]) < compression:
                         dct[i, j, k] = 0.0
                         cnt += 1
         return dct, cnt
 
+    def weight(self,x, size):
+        return 0.5 - 0.5 * np.cos(2.0 * np.pi * ((0.5 * (x + 0.5) / size)))
+
+    def getTile(self,tile, x, y):
+        xn = np.clip(x, 0, len(tile))
+        yn = np.clip(y, 0, len(tile[0]))
+        return tile[xn, yn]
     def cosineWindow(self, arr, size):
         x, y = size
         window = self.windowSize // 2
@@ -304,7 +311,7 @@ class Utils(Algorithm):
         for i in range(len(dct)):
             for j in range(len(dct[i])):
                 for k in range(len(dct[i, j])):
-                    if np.abs(dct[i, j, k]) > compression:
+                    if np.abs(dct[i, j, k]) < compression:
                         dct[i, j, k] = 0.0
                         cnt += 1
         return dct, cnt
@@ -317,7 +324,7 @@ class Utils(Algorithm):
         for i in range(len(dct)):
             for j in range(len(dct[i])):
                 for k in range(len(dct[i, j])):
-                    if np.abs(dct[i, j, k, 0]) + np.abs(dct[i, j, k, 1]) > compression:
+                    if np.abs(dct[i, j, k, 0]) + np.abs(dct[i, j, k, 1]) < compression:
                         dct[i, j, k, 0] = 0.0
                         dct[i, j, k, 1] = 0.0
                         cnt += 1
@@ -331,7 +338,7 @@ class Utils(Algorithm):
         for i in range(len(dct)):
             for j in range(len(dct[i])):
                 for k in range(len(dct[i, j])):
-                    if np.abs(dct[i, j, k]) > compression:
+                    if np.abs(dct[i, j, k]) < compression:
                         dct[i, j, k] = 0.0
                         cnt += 1
         return dct, cnt
@@ -354,12 +361,13 @@ class Utils(Algorithm):
         return self.getIFFT(data)
 
 
-class DCT_CosinineWindow(Utils):
+class DCT_CosineWindow(Utils):
     def __init__(self, block, value):
-        super().__init__(block, value, "DCT_CosinineWindow")
+        super().__init__(block, value, "DCT_CosineWindow")
 
     def run(self, image_path, width, height):
-        image_data = self.loadImg(image_path, False)
+        image_data, original_data = self.loadImg(image_path, True)
+        print(image_data.shape)
         compress, cnt = self.CompressWeights0(image_data, self.value, self.block)
         inverse = self.UnCompressWeights01(compress)
         result = self.cosineWindow(inverse, (width, height))  # TODO: add size
@@ -368,7 +376,7 @@ class DCT_CosinineWindow(Utils):
 
 class FFT_CosineWindow(Utils):
     def __init__(self, block, value):
-        super().__init__(block, value, "DCT_CosinineWindow")
+        super().__init__(block, value, "FFT_CosineWindow")
 
     def run(self, image_path, width, height):
         image_data = self.loadImg(image_path, False)
@@ -381,7 +389,7 @@ class FFT_CosineWindow(Utils):
 
 class DWT_CosineWindow(Utils):
     def __init__(self, block, value):
-        super().__init__(block, value, "DCT_CosinineWindow")
+        super().__init__(block, value, "DWT_CosinineWindow")
 
     def run(self, image_path, width, height):
         image_data = self.loadImg(image_path, False)
@@ -399,7 +407,7 @@ if __name__ == '__main__':
     # jpeg = JPEG_algorithm(0.8)
     # cfft = CFFT_algorithm(50, 0.8)
     # cdct = CDCT_algorithm(8, 0.8)
-    dctcw = DCT_CosinineWindow(8, 0.8)
+    dctcw = DCT_CosineWindow(8, 0.8)
     # l1 = L1_algorithm(8, 0.01)
 
     # comparator.add_algo(jpeg)
