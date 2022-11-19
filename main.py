@@ -103,7 +103,7 @@ class Algorithm:
 
     def calcMeanPSNRS(self):
         for i, value in enumerate(self.psnrs):
-            self.psnr += value / (i + 1)
+            self.psnr += value / (len(self.psnrs))
 
 
 class OctaveAlgorithm(Algorithm):
