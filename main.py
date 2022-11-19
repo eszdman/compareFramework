@@ -45,7 +45,7 @@ class Comparator:
             self.save_processed_image(self.dataset_path, 'BASE', image_name.split('.')[0], data)
         # run algorithms with different specified parameters
         for algorithm in self.algorithms:
-            print(algorithm.algorithm_name)
+            print(algorithm.algorithm_name, algorithm.block, algorithm.value)
             for i, image_name in enumerate(self.images_paths):
                 start_time = datetime.now()
                 processed_image, cnt = algorithm.run(os.path.join(self.dataset_path, image_name),
@@ -409,7 +409,7 @@ if __name__ == '__main__':
     comparator.list_images()
     comparator.load_images()
 
-    for tile in range(8, 32):
+    for tile in range(8, 32, 2):
         for compress in range(0, 5):
             algo = DCT_CosineWindow(tile, compress / 10)
             comparator.add_algo(algo)
