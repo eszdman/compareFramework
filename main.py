@@ -251,13 +251,14 @@ class Utils(Algorithm):
                         cnt += 1
         return dct, cnt
 
-    def weight(self,x, size):
+    def weight(self, x, size):
         return 0.5 - 0.5 * np.cos(2.0 * np.pi * ((0.5 * (x + 0.5) / size)))
 
-    def getTile(self,tile, x, y):
+    def getTile(self, tile, x, y):
         xn = np.clip(x, 0, len(tile))
         yn = np.clip(y, 0, len(tile[0]))
         return tile[xn, yn]
+
     def cosineWindow(self, arr, size):
         x, y = size
         window = self.windowSize // 2
@@ -304,8 +305,7 @@ class Utils(Algorithm):
         return output[dx0:x + dx0, dy0:y + dy0]
 
     def CompressWeights0(self, data, compression, tile):
-        global windowSize
-        windowSize = tile
+        self.windowSize = tile
         cnt = 0
         dct = self.getDCT(data)
         for i in range(len(dct)):
@@ -317,8 +317,7 @@ class Utils(Algorithm):
         return dct, cnt
 
     def CompressWeights1(self, data, compression, tile):
-        global windowSize
-        windowSize = tile
+        self.windowSize = tile
         cnt = 0
         dct = self.getFFT(data)
         for i in range(len(dct)):
@@ -331,8 +330,7 @@ class Utils(Algorithm):
         return dct, cnt
 
     def CompressWeights2(self, data, compression, tile):
-        global windowSize
-        windowSize = tile
+        self.windowSize = tile
         cnt = 0
         dct = self.getDWT(data)
         for i in range(len(dct)):
@@ -344,13 +342,12 @@ class Utils(Algorithm):
         return dct, cnt
 
     def CompressWeights1(self, data, compression, tile):
-        global windowSize
-        windowSize = tile
+        self.windowSize = tile
         dct = self.getDCT(data)
         for i in range(len(dct)):
             for j in range(len(dct[i])):
                 for k in range(len(dct[i, j])):
-                    dct[i, j, k] = (((i * i + j * j)) / (len(dct[i]) ** 2 + len(dct[i, j]) ** 2) > compression) * dct[
+                    dct[i, j, k] = ((i * i + j * j) / (len(dct[i]) ** 2 + len(dct[i, j]) ** 2) > compression) * dct[
                         i, j, k]
         return dct
 
@@ -377,10 +374,11 @@ class DCT_CosineWindow(Utils):
 class FFT_CosineWindow(Utils):
     def __init__(self, block, value):
         super().__init__(block, value, "FFT_CosineWindow")
+        self.tileSize = block
 
     def run(self, image_path, width, height):
-        image_data = self.loadImg(image_path, False)
-        windowSize = self.tileSize
+        image_data, original_data = self.loadImg(image_path, True)
+        self.windowSize = self.tileSize
         compress, cnt = self.CompressWeights1(image_data, self.value, self.block)
         inverse = self.getIFFT(compress)
         result = self.cosineWindow(inverse, (width, height))
@@ -392,11 +390,19 @@ class DWT_CosineWindow(Utils):
         super().__init__(block, value, "DWT_CosinineWindow")
 
     def run(self, image_path, width, height):
-        image_data = self.loadImg(image_path, False)
+        image_data, original_data = self.loadImg(image_path, True)
         compress, cnt = self.CompressWeights2(image_data, self.value, self.block)
         inverse = self.getIDWT(compress)
         result = self.cosineWindow(inverse, (width, height))
         return result, cnt
+
+
+def bruteParams(Algo, image_path, width, height, block_from, block_to, value_from, value_to):
+    for block in range(block_from, block_to):
+        for value in range(int(value_from * 10), int(value_to * 10)):
+            algo = Algo(block, value / 10)
+            algo.run(image_path, width, height)
+            print(algo.psnr)
 
 
 if __name__ == '__main__':
@@ -407,13 +413,21 @@ if __name__ == '__main__':
     # jpeg = JPEG_algorithm(0.8)
     # cfft = CFFT_algorithm(50, 0.8)
     # cdct = CDCT_algorithm(8, 0.8)
-    dctcw = DCT_CosineWindow(8, 0.8)
     # l1 = L1_algorithm(8, 0.01)
+
+    bruteParams(DCT_CosineWindow, os.path.join(os.getcwd(), "dataset\\barbara.tif"), 512, 512, 1, 8, 0.1, 1.0)
+
+    dctcw = DCT_CosineWindow(8, 0.8)
+    # fftcw = FFT_CosineWindow(8, 0.8)
+    # dwtcw = DWT_CosineWindow(8, 0.8)
 
     # comparator.add_algo(jpeg)
     # comparator.add_algo(cfft)
     # comparator.add_algo(cdct)
-    comparator.add_algo(dctcw)
     # comparator.add_algo(l1)
-    comparator.run()
-    comparator.save_results()
+
+    # comparator.add_algo(dctcw)
+    # comparator.add_algo(fftcw)
+    # comparator.add_algo(dwtcw)
+    # comparator.run()
+    # comparator.save_results()

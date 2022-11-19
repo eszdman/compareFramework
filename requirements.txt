@@ -4,3 +4,4 @@ Pillow==9.3.0
 oct2py~=5.5.1
 opencv-python~=4.6.0.66
 pandas==1.5.1
+openpyxl
