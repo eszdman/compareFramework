@@ -246,7 +246,7 @@ class Utils(Algorithm):
         for i in range(len(dct)):
             for j in range(len(dct[i])):
                 for k in range(len(dct[i, j])):
-                    if np.abs(dct[i, j, k]) > compression:
+                    if np.abs(dct[i, j, k]) < compression:
                         dct[i, j, k] = 0.0
                         cnt += 1
         return dct, cnt
@@ -311,7 +311,7 @@ class Utils(Algorithm):
         for i in range(len(dct)):
             for j in range(len(dct[i])):
                 for k in range(len(dct[i, j])):
-                    if np.abs(dct[i, j, k]) > compression:
+                    if np.abs(dct[i, j, k]) < compression:
                         dct[i, j, k] = 0.0
                         cnt += 1
         return dct, cnt
@@ -324,7 +324,7 @@ class Utils(Algorithm):
         for i in range(len(dct)):
             for j in range(len(dct[i])):
                 for k in range(len(dct[i, j])):
-                    if np.abs(dct[i, j, k, 0]) + np.abs(dct[i, j, k, 1]) > compression:
+                    if np.abs(dct[i, j, k, 0]) + np.abs(dct[i, j, k, 1]) < compression:
                         dct[i, j, k, 0] = 0.0
                         dct[i, j, k, 1] = 0.0
                         cnt += 1
@@ -338,7 +338,7 @@ class Utils(Algorithm):
         for i in range(len(dct)):
             for j in range(len(dct[i])):
                 for k in range(len(dct[i, j])):
-                    if np.abs(dct[i, j, k]) > compression:
+                    if np.abs(dct[i, j, k]) < compression:
                         dct[i, j, k] = 0.0
                         cnt += 1
         return dct, cnt
