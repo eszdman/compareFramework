@@ -1,12 +1,13 @@
 import math
 import os
 from datetime import datetime
-
+import pywt
 import cv2 as cv
 import numpy as np
 import pandas as pd
 from PIL import Image
-from oct2py import Oct2Py
+
+# from oct2py import Oct2Py
 
 PIXEL_MAX = 255.0
 
@@ -157,6 +158,7 @@ class Utils(Algorithm):
         super().__init__(name)
         self.block = block
         self.value = value
+        self.windowSize = block
 
     def loadImg(self, path, cosTiling=True):
         image = cv.imread(path)
@@ -361,7 +363,7 @@ class DCT_CosinineWindow(Utils):
         compress, cnt = self.CompressWeights0(image_data, self.value, self.block)
         inverse = self.UnCompressWeights01(compress)
         result = self.cosineWindow(inverse, (width, height))  # TODO: add size
-        return result, cnt
+        return result
 
 
 class FFT_CosineWindow(Utils):
