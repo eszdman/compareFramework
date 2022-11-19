@@ -246,17 +246,6 @@ class Utils(Algorithm):
             fftitiles[i] = np.real(fft2) * 255.0
         return fftitiles
 
-    def CompressWeights0(self, data, compression, tile):
-        self.windowSize = tile
-        cnt = 0
-        dct = self.getDCT(data)
-        for i in range(len(dct)):
-            for j in range(len(dct[i])):
-                for k in range(len(dct[i, j])):
-                    if np.abs(dct[i, j, k]) < compression:
-                        dct[i, j, k] = 0.0
-                        cnt += 1
-        return dct, cnt
 
     def weight(self, x, size):
         return 0.5 - 0.5 * np.cos(2.0 * np.pi * ((0.5 * (x + 0.5) / size)))
@@ -330,7 +319,7 @@ class Utils(Algorithm):
         for i in range(len(dct)):
             for j in range(len(dct[i])):
                 for k in range(len(dct[i, j])):
-                    if np.abs(dct[i, j, k, 0]) + np.abs(dct[i, j, k, 1]) < compression:
+                    if np.abs(dct[i, j, k, 0]) + np.abs(dct[i, j, k, 1]) < compression*len(dct)*len(dct[i]):
                         dct[i, j, k, 0] = 0.0
                         dct[i, j, k, 1] = 0.0
                         cnt += 1
@@ -348,15 +337,6 @@ class Utils(Algorithm):
                         cnt += 1
         return dct, cnt
 
-    def CompressWeights1(self, data, compression, tile):
-        self.windowSize = tile
-        dct = self.getDCT(data)
-        for i in range(len(dct)):
-            for j in range(len(dct[i])):
-                for k in range(len(dct[i, j])):
-                    dct[i, j, k] = ((i * i + j * j) / (len(dct[i]) ** 2 + len(dct[i, j]) ** 2) > compression) * dct[
-                        i, j, k]
-        return dct
 
     def UnCompressWeights01(self, data):
         return self.getIDCT(data)
@@ -373,6 +353,7 @@ class DCT_CosineWindow(Utils):
         image_data, original_data = self.loadImg(image_path, True)
         # print(image_data.shape)
         compress, cnt = self.CompressWeights0(image_data, self.value, self.block)
+        print(compress.shape)
         inverse = self.UnCompressWeights01(compress)
         result = self.cosineWindow(inverse, (width, height))
         return result, cnt
@@ -386,7 +367,7 @@ class FFT_CosineWindow(Utils):
     def run(self, image_path, width, height):
         image_data, original_data = self.loadImg(image_path, True)
         self.windowSize = self.tileSize
-        compress, cnt = self.CompressWeights1(image_data, self.value, self.block)
+        compress,cnt = self.CompressWeights1(image_data, self.value, self.block)
         inverse = self.getIFFT(compress)
         result = self.cosineWindow(inverse, (width, height))
         return result, cnt
@@ -411,7 +392,7 @@ if __name__ == '__main__':
 
     for tile in range(8, 32, 2):
         for compress in range(0, 5):
-            algo = DCT_CosineWindow(tile, compress / 10)
+            algo = FFT_CosineWindow(tile, compress / 10)
             comparator.add_algo(algo)
 
     # jpeg = JPEG_algorithm(0.8)
