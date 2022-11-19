@@ -58,7 +58,9 @@ class Comparator:
                 algorithm.psnrs.append(psnr)
                 algorithm.times.append(working_time)
                 algorithm.save_processed_image(self.dataset_path, image_name.split('.')[0], processed_image)
-                print(image_name, psnr, working_time)
+                # print(image_name, psnr, working_time)
+            algorithm.calcMeanPSNRS()
+            print("PSNR mean:", algorithm.psnr)
 
     def save_results(self):
         results = list()
@@ -89,6 +91,7 @@ class Algorithm:
         self.algorithm_name = name
         self.psnrs = list()
         self.times = list()
+        self.psnr = 0
 
     def save_processed_image(self, path, name, image):
         image = Image.fromarray(image)
@@ -97,6 +100,10 @@ class Algorithm:
         if not os.path.exists(save_path):
             os.makedirs(save_path)
         image.save(os.path.join(save_path, image_name))
+
+    def calcMeanPSNRS(self):
+        for i, value in enumerate(self.psnrs):
+            self.psnr += value / (i + 1)
 
 
 class OctaveAlgorithm(Algorithm):
@@ -364,10 +371,10 @@ class DCT_CosineWindow(Utils):
 
     def run(self, image_path, width, height):
         image_data, original_data = self.loadImg(image_path, True)
-        print(image_data.shape)
+        # print(image_data.shape)
         compress, cnt = self.CompressWeights0(image_data, self.value, self.block)
         inverse = self.UnCompressWeights01(compress)
-        result = self.cosineWindow(inverse, (width, height))  # TODO: add size
+        result = self.cosineWindow(inverse, (width, height))
         return result, cnt
 
 
@@ -397,27 +404,20 @@ class DWT_CosineWindow(Utils):
         return result, cnt
 
 
-def bruteParams(Algo, image_path, width, height, block_from, block_to, value_from, value_to):
-    for block in range(block_from, block_to):
-        for value in range(int(value_from * 10), int(value_to * 10)):
-            algo = Algo(block, value / 10)
-            algo.run(image_path, width, height)
-            print(algo.psnr)
-
-
 if __name__ == '__main__':
     comparator = Comparator(os.path.join(os.getcwd(), "dataset"))
     comparator.list_images()
     comparator.load_images()
 
+    for tile in range(8, 32):
+        for compress in range(0, 5):
+            algo = DCT_CosineWindow(tile, compress / 10)
+            comparator.add_algo(algo)
+
     # jpeg = JPEG_algorithm(0.8)
     # cfft = CFFT_algorithm(50, 0.8)
     # cdct = CDCT_algorithm(8, 0.8)
     # l1 = L1_algorithm(8, 0.01)
-
-    bruteParams(DCT_CosineWindow, os.path.join(os.getcwd(), "dataset\\barbara.tif"), 512, 512, 1, 8, 0.1, 1.0)
-
-    dctcw = DCT_CosineWindow(8, 0.8)
     # fftcw = FFT_CosineWindow(8, 0.8)
     # dwtcw = DWT_CosineWindow(8, 0.8)
 
@@ -429,5 +429,5 @@ if __name__ == '__main__':
     # comparator.add_algo(dctcw)
     # comparator.add_algo(fftcw)
     # comparator.add_algo(dwtcw)
-    # comparator.run()
-    # comparator.save_results()
+    comparator.run()
+    comparator.save_results()
