@@ -48,9 +48,9 @@ class Comparator:
             print(algorithm.algorithm_name)
             for i, image_name in enumerate(self.images_paths):
                 start_time = datetime.now()
-                processed_image = algorithm.run(os.path.join(self.dataset_path, image_name),
-                                                self.images_original[i].width,
-                                                self.images_original[i].height)
+                processed_image, cnt = algorithm.run(os.path.join(self.dataset_path, image_name),
+                                                     self.images_original[i].width,
+                                                     self.images_original[i].height)
                 working_time = datetime.now() - start_time
                 processed_image = np.clip(processed_image, 0.0, 255.0).astype("uint8")
                 processed_image = clahe.apply(processed_image)
@@ -363,7 +363,7 @@ class DCT_CosinineWindow(Utils):
         compress, cnt = self.CompressWeights0(image_data, self.value, self.block)
         inverse = self.UnCompressWeights01(compress)
         result = self.cosineWindow(inverse, (width, height))  # TODO: add size
-        return result
+        return result, cnt
 
 
 class FFT_CosineWindow(Utils):
