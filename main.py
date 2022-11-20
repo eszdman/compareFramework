@@ -441,9 +441,27 @@ if __name__ == '__main__':
     comparator = None
     with open(os.path.join(os.getcwd(), "dataset\\results\\comparator.pk"), 'rb') as f:
         comparator = pickle.load(f)
-    x = [i for i in range(len(comparator.algorithms))]
+    # x = [i for i in range(len(comparator.algorithms))]
     psnrs = [algo.psnr for algo in comparator.algorithms]
     cnts = [algo.cnt for algo in comparator.algorithms]
 
-    plt.scatter(cnts, psnrs)
-    plt.show()
+    nrows, ncols = 12, 5
+    data = np.asarray(psnrs).reshape(nrows, ncols)
+    # creating a plot
+    pixel_plot = plt.figure()
+
+    # plotting a plot
+    pixel_plot.add_axes(rect=[0, 0, nrows, ncols]) # TODO: fix
+
+    # customizing plot
+    plt.title("pixel_plot")
+    pixel_plot = plt.imshow(
+        data, cmap='Greens', interpolation='nearest', origin='lower')
+
+    plt.colorbar(pixel_plot)
+
+    # save a plot
+    plt.savefig('pixel_plot.png')
+
+    # show plot
+    plt.show(pixel_plot)
