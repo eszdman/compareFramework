@@ -213,8 +213,8 @@ class Utils(Algorithm):
 
     def getDWT(self, tiles):
         wsize = len(tiles[0])
-        #print(pywt.wavelist(kind='discrete'))
-        #dcttiles = np.zeros([len(tiles), wsize, wsize])
+        # print(pywt.wavelist(kind='discrete'))
+        # dcttiles = np.zeros([len(tiles), wsize, wsize])
         dctList = []
         for i in range(len(tiles)):
             imf = np.float32(tiles[i]) / 255.0  # float conversion/scale
@@ -222,7 +222,7 @@ class Utils(Algorithm):
             dctList.append(output)
         return dctList
 
-    def getIDWT(self, tiles,tileSize):
+    def getIDWT(self, tiles, tileSize):
         idcttiles = np.zeros([len(tiles), tileSize, tileSize])
         for i in range(len(tiles)):
             inverse = pywt.waverec2(tiles[i], 'db2') * 255.0
@@ -304,43 +304,48 @@ class Utils(Algorithm):
     def CompressWeights0(self, data, compression, tile):
         self.windowSize = tile
         cnt = 0
+        cnt2 = 0
         dct = self.getDCT(data)
         for i in range(len(dct)):
             for j in range(len(dct[i])):
                 for k in range(len(dct[i, j])):
+                    cnt2 += 1
                     if np.abs(dct[i, j, k]) < compression:
                         dct[i, j, k] = 0.0
                         cnt += 1
-        return dct, cnt
+        return dct, cnt / cnt2
 
     def CompressWeights1(self, data, compression, tile):
         self.windowSize = tile
         cnt = 0
         dct = self.getFFT(data)
-
+        cnt2 = 0
         for i in range(len(dct)):
             for j in range(len(dct[i])):
                 for k in range(len(dct[i, j])):
+                    cnt2 += 1
                     if np.sqrt(dct[i, j, k, 0] * dct[i, j, k, 0] + dct[i, j, k, 1] * dct[i, j, k, 1]) < \
                             compression * len(dct[i]):
                         dct[i, j, k, 0] = 0.0
                         dct[i, j, k, 1] = 0.0
                         cnt += 1
-        return dct, cnt
+        return dct, cnt / cnt2
 
     def CompressWeights2(self, data, compression, tile):
         self.windowSize = tile
         cnt = 0
+        cnt2 = 0
         dct = self.getDWT(data)
         for i in range(len(dct)):
             for j in range(1, len(dct[i])):
                 for k in range(len(dct[i][j])):
                     for k2 in range(len(dct[i][j][k])):
                         for k3 in range(len(dct[i][j][k][k2])):
+                            cnt2 += 1
                             if np.abs(dct[i][j][k][k2][k3]) < compression:
                                 dct[i][j][k][k2][k3] = 0.0
                                 cnt += 1
-        return dct, cnt
+        return dct, cnt / (cnt2 + len(dct))
 
     def UnCompressWeights01(self, data):
         return self.getIDCT(data)
@@ -383,7 +388,7 @@ class DWT_CosineWindow(Utils):
     def run(self, image_path, width, height):
         image_data, original_data = self.loadImg(image_path, True)
         compress, cnt = self.CompressWeights2(image_data, self.value, self.block)
-        inverse = self.getIDWT(compress,self.block)
+        inverse = self.getIDWT(compress, self.block)
         result = self.cosineWindow(inverse, (width, height))
         return result, cnt
 
@@ -394,8 +399,8 @@ if __name__ == '__main__':
     comparator.load_images()
     for tile in range(8, 32, 2):
         for compress in np.arange(0, 0.5, 0.1):
-           algo = DCT_CosineWindow(tile, compress)
-           comparator.add_algo(algo)
+            algo = DCT_CosineWindow(tile, compress)
+            comparator.add_algo(algo)
     # jpeg = JPEG_algorithm(0.8)
     # comparator.add_algo(DWT_CosineWindow(16, 0.2))
     # cdct = CDCT_algorithm(8, 0.8)
