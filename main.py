@@ -436,32 +436,61 @@ def calc():
         pickle.dump(comparator, f)
 
 
+def toimg(algoSequence):
+    maxPsnr = 0.0
+    maxTime = 0.0
+    maxEfficiency = 0.0
+    cnt = 0
+    x2 = 0
+    y = 0
+    output = []
+
+    for tile in range(8, 32, 2):
+        outputx = []
+        for compress in np.arange(0, 0.5, 0.1):
+            algo = algoSequence[cnt]
+            efficiency = algo.psnr * algo.cnt
+            maxEfficiency = np.maximum(efficiency, maxEfficiency)
+            print(algo.psnr)
+            avrTime = 0.0
+            for time in algo.times:
+                avrTime += time.total_seconds()
+            avrTime /= len(algo.times)
+            outputx.append([algo.psnr, algo.cnt, avrTime])
+            maxPsnr = np.maximum(algo.psnr, maxPsnr)
+            maxTime = np.maximum(avrTime, maxTime)
+            cnt += 1
+        output.append(outputx)
+    x2 = 0
+    y = 0
+    outputNp = np.zeros([len(output), len(output[0]), 3], dtype=float)
+    for tile in range(8, 32, 2):
+        x2 = 0
+        for compress in np.arange(0, 0.5, 0.1):
+            efficiency = output[y][x2][0] * output[y][x2][1]
+            output[y][x2][0] /= maxPsnr
+            output[y][x2][2] = 1.0 - output[y][x2][2] / maxTime
+
+            if np.abs(efficiency - maxEfficiency) < 0.2:
+                output[y][x2][2] = 255.0
+                output[y][x2][1] = 255.0
+                output[y][x2][0] = 255.0
+                print('Perfect parameters: compression:', compress, 'tile:', tile)
+            outputNp[y, x2] = output[y][x2]
+            x2 += 1
+        y += 1
+    print(outputNp)
+    fig, ax = plt.subplots()
+    ax.imshow(outputNp, extent=[0, 0.4, 32, 8])
+    ax.set_aspect(0.05)
+    return output
+
+
 if __name__ == '__main__':
     # calc()
     comparator = None
     with open(os.path.join(os.getcwd(), "dataset\\results\\comparator.pk"), 'rb') as f:
         comparator = pickle.load(f)
-    # x = [i for i in range(len(comparator.algorithms))]
-    psnrs = [algo.psnr for algo in comparator.algorithms]
-    cnts = [algo.cnt for algo in comparator.algorithms]
 
-    nrows, ncols = 12, 5
-    data = np.asarray(psnrs).reshape(nrows, ncols)
-    # creating a plot
-    pixel_plot = plt.figure()
-
-    # plotting a plot
-    pixel_plot.add_axes(rect=[0, 0, nrows, ncols]) # TODO: fix
-
-    # customizing plot
-    plt.title("pixel_plot")
-    pixel_plot = plt.imshow(
-        data, cmap='Greens', interpolation='nearest', origin='lower')
-
-    plt.colorbar(pixel_plot)
-
-    # save a plot
-    plt.savefig('pixel_plot.png')
-
-    # show plot
-    plt.show(pixel_plot)
+    out = toimg(comparator.algorithms)
+    plt.show()
