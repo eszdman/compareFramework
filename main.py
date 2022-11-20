@@ -47,7 +47,7 @@ class Comparator:
             self.save_processed_image(self.dataset_path, 'BASE', image_name.split('.')[0], data)
         # run algorithms with different specified parameters
         for algorithm in self.algorithms:
-            print(algorithm.algorithm_name, algorithm.block, algorithm.value)
+            print(algorithm.algorithm_name, algorithm.block, algorithm.compression)
             for i, image_name in enumerate(self.images_paths):
                 start_time = datetime.now()
                 processed_image, cnt = algorithm.run(os.path.join(self.dataset_path, image_name),
@@ -130,19 +130,19 @@ class OctaveAlgorithm(Algorithm):
 
 
 class CompressedSensing(OctaveAlgorithm):
-    def __init__(self, name, block, value):
+    def __init__(self, name, block, compression):
         super().__init__(name, os.path.join(os.getcwd(), "plugins", "compressed_sensing"))
         self.block = block
-        self.value = value
+        self.compression = compression
 
 
 class JPEG_algorithm(Algorithm):
-    def __init__(self, value):
+    def __init__(self, compression):
         super().__init__("JPEG")
-        self.value = value
+        self.compression = compression
 
-    def run(self, image_path, _, _1):
-        encode_param = [int(cv.IMWRITE_JPEG_QUALITY), int(100 * self.value)]
+    def run(self, image_path, weight, height):
+        encode_param = [int(cv.IMWRITE_JPEG_QUALITY), int(100 * self.compression)]
         img = cv.imread(image_path, 0)
         _, enc = cv.imencode('.jpg', img, encode_param)
         decimg = cv.imdecode(enc, 1)
@@ -150,34 +150,34 @@ class JPEG_algorithm(Algorithm):
 
 
 class CFFT_algorithm(CompressedSensing):
-    def __init__(self, block, value):
-        super().__init__("CFFT", block, value)
+    def __init__(self, block, compression):
+        super().__init__("CFFT", block, compression)
 
     def run(self, image_path, width, height):
-        return self.octave.CFFT(image_path, width, height, self.block, self.value)
+        return self.octave.CFFT(image_path, width, height, self.block, self.compression)
 
 
 class CDCT_algorithm(CompressedSensing):
-    def __init__(self, block, value):
-        super().__init__("CDCT", block, value)
+    def __init__(self, block, compression):
+        super().__init__("CDCT", block, compression)
 
     def run(self, image_path, width, height):
-        return self.octave.CDCT(image_path, width, height, self.block, self.value)
+        return self.octave.CDCT(image_path, width, height, self.block, self.compression)
 
 
 class L1_algorithm(CompressedSensing):
-    def __init__(self, block, value):
-        super().__init__("L1", block, value)
+    def __init__(self, block, compression):
+        super().__init__("L1", block, compression)
 
     def run(self, image_path, width, height):
-        return self.octave.L1(image_path, width, height, self.block, self.value)
+        return self.octave.L1(image_path, width, height, self.block, self.compression)
 
 
 class Utils(Algorithm):
-    def __init__(self, block, value, name):
+    def __init__(self, block, compression, name):
         super().__init__(name)
         self.block = block
-        self.value = value
+        self.compression = compression
         self.windowSize = block
 
     def loadImg(self, path, cosTiling=True):
@@ -186,7 +186,7 @@ class Utils(Algorithm):
         image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
         size = 0
         size2 = self.windowSize
-        if (cosTiling):
+        if cosTiling:
             size = self.windowSize // 2
             size2 = self.windowSize // 2
         slices = self.rwindow(image, size2, size)
@@ -262,7 +262,7 @@ class Utils(Algorithm):
         return fftitiles
 
     def weight(self, x, size):
-        return 0.5 - 0.5 * np.cos(2.0 * np.pi * ((0.5 * (x + 0.5) / size)))
+        return 0.5 - 0.5 * np.cos(2.0 * np.pi * (0.5 * (x + 0.5) / size))
 
     def getTile(self, tile, x, y):
         xn = np.clip(x, 0, len(tile))
@@ -368,39 +368,39 @@ class Utils(Algorithm):
 
 
 class DCT_CosineWindow(Utils):
-    def __init__(self, block, value):
-        super().__init__(block, value, "DCT_CosineWindow")
+    def __init__(self, block, compression):
+        super().__init__(block, compression, "DCT_CosineWindow")
 
     def run(self, image_path, width, height):
         image_data, original_data = self.loadImg(image_path, True)
         # print(image_data.shape)
-        compress, cnt = self.CompressWeights0(image_data, self.value, self.block)
+        compress, cnt = self.CompressWeights0(image_data, self.compression, self.block)
         inverse = self.UnCompressWeights01(compress)
         result = self.cosineWindow(inverse, (width, height))
         return result, cnt
 
 
 class FFT_CosineWindow(Utils):
-    def __init__(self, block, value):
-        super().__init__(block, value, "FFT_CosineWindow")
+    def __init__(self, block, compression):
+        super().__init__(block, compression, "FFT_CosineWindow")
         self.tileSize = block
 
     def run(self, image_path, width, height):
         image_data, original_data = self.loadImg(image_path, True)
         self.windowSize = self.tileSize
-        compress, cnt = self.CompressWeights1(image_data, self.value, self.block)
+        compress, cnt = self.CompressWeights1(image_data, self.compression, self.block)
         inverse = self.getIFFT(compress)
         result = self.cosineWindow(inverse, (width, height))
         return result, cnt
 
 
 class DWT_CosineWindow(Utils):
-    def __init__(self, block, value):
-        super().__init__(block, value, "DWT_CosineWindow")
+    def __init__(self, block, compression):
+        super().__init__(block, compression, "DWT_CosineWindow")
 
     def run(self, image_path, width, height):
         image_data, original_data = self.loadImg(image_path, True)
-        compress, cnt = self.CompressWeights2(image_data, self.value, self.block)
+        compress, cnt = self.CompressWeights2(image_data, self.compression, self.block)
         inverse = self.getIDWT(compress, self.block)
         result = self.cosineWindow(inverse, (width, height))
         return result, cnt
@@ -445,8 +445,5 @@ if __name__ == '__main__':
     psnrs = [algo.psnr for algo in comparator.algorithms]
     cnts = [algo.cnt for algo in comparator.algorithms]
 
-    fig = plt.figure()
-    ax = plt.axes(projection='3d')
-
-    ax.plot3D(x, psnrs, cnts)
+    plt.scatter(cnts, psnrs)
     plt.show()
