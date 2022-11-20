@@ -1,11 +1,13 @@
 import math
 import os
+import pickle
 from datetime import datetime
 import pywt
 import cv2 as cv
 import numpy as np
 import pandas as pd
 from PIL import Image
+from matplotlib import pyplot as plt
 
 # from oct2py import Oct2Py
 
@@ -52,15 +54,20 @@ class Comparator:
                                                      self.images_original[i].width,
                                                      self.images_original[i].height)
                 working_time = datetime.now() - start_time
+
                 processed_image = np.clip(processed_image, 0.0, 255.0).astype("uint8")
                 processed_image = clahe.apply(processed_image)
                 psnr = self.compareProcessed(i, processed_image)
+
                 algorithm.psnrs.append(psnr)
                 algorithm.times.append(working_time)
+                algorithm.cnts.append(cnt)
+
                 algorithm.save_processed_image(self.dataset_path, image_name.split('.')[0], processed_image)
                 # print(image_name, psnr, working_time)
             algorithm.calcMeanPSNRS()
-            print("PSNR mean:", algorithm.psnr)
+            algorithm.calcMeanCNT()
+            print("PSNR mean:", algorithm.psnr, "CNT mean:", algorithm.cnt)
 
     def save_results(self):
         results = list()
@@ -91,7 +98,9 @@ class Algorithm:
         self.algorithm_name = name
         self.psnrs = list()
         self.times = list()
+        self.cnts = list()
         self.psnr = 0
+        self.cnt = 0
 
     def save_processed_image(self, path, name, image):
         image = Image.fromarray(image)
@@ -104,6 +113,10 @@ class Algorithm:
     def calcMeanPSNRS(self):
         for i, value in enumerate(self.psnrs):
             self.psnr += value / (len(self.psnrs))
+
+    def calcMeanCNT(self):
+        for i, value in enumerate(self.cnts):
+            self.cnt += value / (len(self.cnts))
 
 
 class OctaveAlgorithm(Algorithm):
@@ -393,7 +406,7 @@ class DWT_CosineWindow(Utils):
         return result, cnt
 
 
-if __name__ == '__main__':
+def calc():
     comparator = Comparator(os.path.join(os.getcwd(), "dataset"))
     comparator.list_images()
     comparator.load_images()
@@ -418,3 +431,22 @@ if __name__ == '__main__':
     # comparator.add_algo(dwtcw)
     comparator.run()
     comparator.save_results()
+
+    with open(os.path.join(os.getcwd(), "dataset\\results\\comparator.pk"), 'wb') as f:
+        pickle.dump(comparator, f)
+
+
+if __name__ == '__main__':
+    # calc()
+    comparator = None
+    with open(os.path.join(os.getcwd(), "dataset\\results\\comparator.pk"), 'rb') as f:
+        comparator = pickle.load(f)
+    x = [i for i in range(len(comparator.algorithms))]
+    psnrs = [algo.psnr for algo in comparator.algorithms]
+    cnts = [algo.cnt for algo in comparator.algorithms]
+
+    fig = plt.figure()
+    ax = plt.axes(projection='3d')
+
+    ax.plot3D(x, psnrs, cnts)
+    plt.show()
