@@ -232,14 +232,14 @@ class Utils(Algorithm):
         dctList = []
         for i in range(len(tiles)):
             imf = np.float32(tiles[i]) / 255.0  # float conversion/scale
-            output = pywt.wavedec2(imf, 'db2')
+            output = pywt.wavedec2(imf, 'haar')
             dctList.append(output)
         return dctList
 
     def getIDWT(self, tiles, tileSize):
         idcttiles = np.zeros([len(tiles), tileSize, tileSize])
         for i in range(len(tiles)):
-            inverse = pywt.waverec2(tiles[i], 'db2') * 255.0
+            inverse = pywt.waverec2(tiles[i], 'haar') * 255.0
             idcttiles[i] = inverse
         return idcttiles
 
@@ -315,7 +315,7 @@ class Utils(Algorithm):
 
         return output[dx0:x + dx0, dy0:y + dy0]
 
-    def output2d(arr, size):
+    def output2d(self,arr, size):
         x, y = size
         window = len(arr[0, 0])
         dx = window - (x) % window
@@ -478,7 +478,7 @@ def calc():
     #        comparator.add_algo(algo)
 
     # jpeg = JPEG_algorithm(0.8)
-    comparator.add_algo(DCT_CosineWindow(28, 0.05))
+    comparator.add_algo(FFT_Trivial(30, 0.4))
     # cdct = CDCT_algorithm(8, 0.8)
     # l1 = L1_algorithm(8, 0.01)
     # fftcw = FFT_CosineWindow(8, 0.8)
