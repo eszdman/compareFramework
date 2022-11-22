@@ -2,12 +2,14 @@ import math
 import os
 import pickle
 from datetime import datetime
-import pywt
+
 import cv2 as cv
 import numpy as np
 import pandas as pd
+import pywt
 from PIL import Image
 from matplotlib import pyplot as plt
+from multiprocessing import Pool
 
 # from oct2py import Oct2Py
 
@@ -21,6 +23,7 @@ class Comparator:
         self.images_paths = list()
         self.images_original = list()
         self.images_original_data = list()
+        self.clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
     def add_algo(self, algorithm):
         self.algorithms.append(algorithm)
@@ -37,6 +40,32 @@ class Comparator:
             image = Image.open(path)
             self.images_original.append(image)
 
+    def process(self, algorithm):
+        algorithm.psnrs = [150] * len(self.images_original)
+        print(algorithm.algorithm_name, algorithm.block, algorithm.compression)
+        for i, image_name in enumerate(self.images_paths):
+            start_time = datetime.now()
+            processed_image, cnt = algorithm.run(os.path.join(self.dataset_path, image_name),
+                                                 self.images_original[i].width,
+                                                 self.images_original[i].height)
+            working_time = datetime.now() - start_time
+
+            processed_image = np.clip(processed_image, 0.0, 255.0).astype("uint8")
+            processed_image = self.clahe.apply(processed_image)
+            psnr = self.compareProcessed(i, processed_image)
+
+            algorithm.psnrs.append(psnr)
+            algorithm.times.append(working_time)
+            algorithm.cnts.append(cnt)
+
+            algorithm.save_processed_image(self.dataset_path,
+                                           image_name.split('.')[0] + f"_{algorithm.block}_{algorithm.compression}",
+                                           processed_image)
+            # print(image_name, psnr, working_time)
+        algorithm.calcMeanPSNRS()
+        algorithm.calcMeanCNT()
+        print("PSNR mean:", algorithm.psnr, "CNT mean:", algorithm.cnt)
+
     def run(self):
         clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         # prepare base images
@@ -46,28 +75,8 @@ class Comparator:
             self.images_original_data.append(data)
             self.save_processed_image(self.dataset_path, 'BASE', image_name.split('.')[0], data)
         # run algorithms with different specified parameters
-        for algorithm in self.algorithms:
-            print(algorithm.algorithm_name, algorithm.block, algorithm.compression)
-            for i, image_name in enumerate(self.images_paths):
-                start_time = datetime.now()
-                processed_image, cnt = algorithm.run(os.path.join(self.dataset_path, image_name),
-                                                     self.images_original[i].width,
-                                                     self.images_original[i].height)
-                working_time = datetime.now() - start_time
-
-                processed_image = np.clip(processed_image, 0.0, 255.0).astype("uint8")
-                processed_image = clahe.apply(processed_image)
-                psnr = self.compareProcessed(i, processed_image)
-
-                algorithm.psnrs.append(psnr)
-                algorithm.times.append(working_time)
-                algorithm.cnts.append(cnt)
-
-                algorithm.save_processed_image(self.dataset_path, image_name.split('.')[0], processed_image)
-                # print(image_name, psnr, working_time)
-            algorithm.calcMeanPSNRS()
-            algorithm.calcMeanCNT()
-            print("PSNR mean:", algorithm.psnr, "CNT mean:", algorithm.cnt)
+        with Pool(len(self.images_original)) as pool:
+            pool.map(self.process, self.algorithms)
 
     def save_results(self):
         results = list()
@@ -207,6 +216,22 @@ class Utils(Algorithm):
                 inp = arr[iw:(iw + size + oversize), jw:(jw + size + oversize)]
                 output[i, j] = inp
         return output
+
+    def output2d(self, arr, size):
+        x, y = size
+        window = len(arr[0, 0])
+        dx = window - (x) % window
+        dy = window - (y) % window
+        dx0 = dx // 2
+        dy0 = dy // 2
+        xo = x + dx + (dx + 1) // 2
+        yo = y + dy + (dy + 1) // 2
+        output = np.zeros([xo, yo], dtype=arr.dtype)
+        arr = arr.reshape(xo // window, yo // window, window, window)
+        for i in range(len(arr)):
+            for j in range(len(arr[0])):
+                output[i * window:i * window + window, j * window:j * window + window] = arr[i, j]
+        return output[dx0:x + dx0, dy0:y + dy0]
 
     def getDCT(self, tiles):
         wsize = len(tiles[0])
@@ -406,34 +431,58 @@ class DWT_CosineWindow(Utils):
         return result, cnt
 
 
-def calc():
-    comparator = Comparator(os.path.join(os.getcwd(), "dataset"))
-    comparator.list_images()
-    comparator.load_images()
-    for tile in range(8, 32, 2):
-        for compress in np.arange(0, 0.5, 0.1):
-            algo = DCT_CosineWindow(tile, compress)
-            comparator.add_algo(algo)
-    # jpeg = JPEG_algorithm(0.8)
-    # comparator.add_algo(DWT_CosineWindow(16, 0.2))
-    # cdct = CDCT_algorithm(8, 0.8)
-    # l1 = L1_algorithm(8, 0.01)
-    # fftcw = FFT_CosineWindow(8, 0.8)
-    # dwtcw = DWT_CosineWindow(8, 0.8)
+class DCT_Trivial(Utils):
+    def __init__(self, block, compression):
+        super().__init__(block, compression, "DCT_Trivial")
 
-    # comparator.add_algo(jpeg)
-    # comparator.add_algo(cfft)
-    # comparator.add_algo(cdct)
-    # comparator.add_algo(l1)
+    def run(self, image_path, width, height):
+        image_data, original_data = self.loadImg(image_path, False)
+        compress, cnt = self.CompressWeights0(image_data, self.compression, self.block)
+        inverse = self.getIDCT(compress)
+        result = self.output2d(inverse, (width, height))
+        return result, cnt
 
-    # comparator.add_algo(dctcw)
-    # comparator.add_algo(fftcw)
-    # comparator.add_algo(dwtcw)
-    comparator.run()
-    comparator.save_results()
 
-    with open(os.path.join(os.getcwd(), "dataset\\results\\comparator.pk"), 'wb') as f:
-        pickle.dump(comparator, f)
+class FFT_Trivial(Utils):
+    def __init__(self, block, compression):
+        super().__init__(block, compression, "FFT_Trivial")
+
+    def run(self, image_path, width, height):
+        image_data, original_data = self.loadImg(image_path, False)
+        compress, cnt = self.CompressWeights1(image_data, self.compression, self.block)
+        inverse = self.getIFFT(compress)
+        result = self.output2d(inverse, (width, height))
+        return result, cnt
+
+
+class DWT_Trivial(Utils):
+    def __init__(self, block, compression):
+        super().__init__(block, compression, "DWT_Trivial")
+
+    def run(self, image_path, width, height):
+        image_data, original_data = self.loadImg(image_path, False)
+        compress, cnt = self.CompressWeights2(image_data, self.compression, self.block)
+        inverse = self.getIDWT(compress, self.block)
+        result = self.output2d(inverse, (width, height))
+        return result, cnt
+
+
+class DWT_NonTiled(Utils):
+    def __init__(self, block, compression):
+        super().__init__(block, compression, "DWT_NonTiled")
+
+    def run(self, image_path, width, height):
+        image = cv.imread(image_path)
+        image = np.asarray(image).astype("uint8")
+        image_data = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        coeffs = pywt.dwt2(image_data, 'haar')
+        cnt = 0
+        for i in range(len(coeffs)):
+            if np.abs(coeffs[i]) > self.compression:
+                coeffs[i] = 0.0
+                cnt += 1
+        result = pywt.idwt2(coeffs, 'haar')
+        return result, cnt
 
 
 def toimg(algoSequence):
@@ -486,11 +535,40 @@ def toimg(algoSequence):
     return output
 
 
-if __name__ == '__main__':
-    # calc()
-    comparator = None
-    with open(os.path.join(os.getcwd(), "dataset\\results\\comparator.pk"), 'rb') as f:
-        comparator = pickle.load(f)
+def calc():
+    comparator = Comparator(os.path.join(os.getcwd(), "dataset\\kodim"))
+    comparator.list_images()
+    comparator.load_images()
+    for tile in range(8, 32, 2):
+        for compress in np.arange(0, 0.5, 0.1):
+            algo = FFT_Trivial(tile, compress)
+            comparator.add_algo(algo)
 
+    comparator.run()
+    comparator.save_results()
+
+    with open(os.path.join(os.getcwd(), f"dataset\\results\\comparator_{comparator.algorithms[0].name}.pk"), 'wb') as f:
+        pickle.dump(comparator, f)
+
+
+def show_pixels(comparator):
     out = toimg(comparator.algorithms)
     plt.show()
+
+
+def print_min_pnsr(comparator):
+    min_psnr = 150
+    for psnr in [algorithm.psnr for algorithm in comparator.algorithms]:
+        if min_psnr > psnr:
+            min_psnr = psnr
+    print(min_psnr)
+
+
+if __name__ == '__main__':
+    calc()
+    comparator = None
+    with open(os.path.join(os.getcwd(), "dataset\\results\\comparator_FFT_Trivial.pk"), 'rb') as f:
+        comparator = pickle.load(f)
+
+    show_pixels(comparator)
+    print_min_pnsr(comparator)
