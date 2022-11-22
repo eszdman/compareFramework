@@ -53,8 +53,8 @@ class Comparator:
 
         start_time = datetime.now()
         processed_image, cnt = self.algorithms[self.algo_index].run(os.path.join(self.dataset_path, image_name),
-                                                                    self.images_original[index].width,
-                                                                    self.images_original[index].height)
+                                                                    self.images_original[index].height,
+                                                                    self.images_original[index].width)
         working_time = datetime.now() - start_time
 
         processed_image = np.clip(processed_image, 0.0, 255.0).astype("uint8")
@@ -74,7 +74,7 @@ class Comparator:
         # prepare base images
         for i, image_name in enumerate(self.images_paths):
             data = np.asarray(self.images_original[i]).astype("uint8")
-            # data = cv.cvtColor(data, cv.COLOR_BGR2GRAY)
+            data = cv.cvtColor(data, cv.COLOR_BGR2GRAY)
             data = clahe.apply(data)
             self.images_original_data.append(data)
             self.save_processed_image(self.dataset_path, 'BASE', image_name.split('.')[0], data)
@@ -552,7 +552,7 @@ def toimg(algoSequence):
 
 
 def calc():
-    comparator = Comparator(os.path.join(os.getcwd(), "dataset"))
+    comparator = Comparator(os.path.join(os.getcwd(), "dataset\\kodim"))
     comparator.list_images()
     comparator.load_images()
     for tile in range(8, 32, 2):
