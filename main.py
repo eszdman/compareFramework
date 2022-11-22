@@ -552,7 +552,7 @@ def toimg(algoSequence):
 
 
 def calc():
-    comparator = Comparator(os.path.join(os.getcwd(), "dataset\\kodim"))
+    comparator = Comparator(os.path.join(os.getcwd(), "dataset/kodim"))
     comparator.list_images()
     comparator.load_images()
     for tile in range(8, 32, 2):
@@ -563,7 +563,7 @@ def calc():
     comparator.run()
     comparator.save_results()
 
-    with open(os.path.join(os.getcwd(), f"dataset\\results\\comparator_{comparator.algorithms[0].algorithm_name}.pk"), 'wb') as f:
+    with open(os.path.join(os.getcwd(), f"dataset/results/comparator_{comparator.algorithms[0].algorithm_name}.pk"), 'wb') as f:
         pickle.dump(comparator, f)
 
 
@@ -583,7 +583,7 @@ def print_min_pnsr(comparator):
 if __name__ == '__main__':
     calc()
     comparator = None
-    with open(os.path.join(os.getcwd(), "dataset\\results\\comparator_FFT_Trivial.pk"), 'rb') as f:
+    with open(os.path.join(os.getcwd(), "dataset/results/comparator_FFT_Trivial.pk"), 'rb') as f:
         comparator = pickle.load(f)
 
     show_pixels(comparator)
