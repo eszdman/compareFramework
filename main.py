@@ -23,7 +23,6 @@ class Comparator:
         self.images_paths = list()
         self.images_original = list()
         self.images_original_data = list()
-        self.clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
     def add_algo(self, algorithm):
         self.algorithms.append(algorithm)
@@ -40,43 +39,51 @@ class Comparator:
             image = Image.open(path)
             self.images_original.append(image)
 
-    def process(self, algorithm):
-        algorithm.psnrs = [150] * len(self.images_original)
-        print(algorithm.algorithm_name, algorithm.block, algorithm.compression)
-        for i, image_name in enumerate(self.images_paths):
-            start_time = datetime.now()
-            processed_image, cnt = algorithm.run(os.path.join(self.dataset_path, image_name),
-                                                 self.images_original[i].width,
-                                                 self.images_original[i].height)
-            working_time = datetime.now() - start_time
+    def process(self, index):
+        clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
-            processed_image = np.clip(processed_image, 0.0, 255.0).astype("uint8")
-            processed_image = self.clahe.apply(processed_image)
-            psnr = self.compareProcessed(i, processed_image)
+        image_name = self.images_paths[index]
 
-            algorithm.psnrs.append(psnr)
-            algorithm.times.append(working_time)
-            algorithm.cnts.append(cnt)
+        start_time = datetime.now()
+        processed_image, cnt = self.algorithms[self.algo_index].run(os.path.join(self.dataset_path, image_name),
+                                                                    self.images_original[index].width,
+                                                                    self.images_original[index].height)
+        working_time = datetime.now() - start_time
 
-            algorithm.save_processed_image(self.dataset_path,
-                                           image_name.split('.')[0] + f"_{algorithm.block}_{algorithm.compression}",
-                                           processed_image)
-            # print(image_name, psnr, working_time)
-        algorithm.calcMeanPSNRS()
-        algorithm.calcMeanCNT()
-        print("PSNR mean:", algorithm.psnr, "CNT mean:", algorithm.cnt)
+        processed_image = np.clip(processed_image, 0.0, 255.0).astype("uint8")
+        processed_image = clahe.apply(processed_image)
+        psnr = self.compareProcessed(index, processed_image)
+
+        self.algorithms[self.algo_index].psnrs[index] = psnr
+        self.algorithms[self.algo_index].times[index] = working_time
+        self.algorithms[self.algo_index].cnts[index] = cnt
+
+        self.algorithms[self.algo_index].save_processed_image(self.dataset_path,
+                                                              image_name.split('.')[
+                                                                  0] + f"_{self.algorithms[self.algo_index].block}_{self.algorithms[self.algo_index].compression}",
+                                                              processed_image)
 
     def run(self):
         clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         # prepare base images
         for i, image_name in enumerate(self.images_paths):
             data = np.asarray(self.images_original[i]).astype("uint8")
+            # data = cv.cvtColor(data, cv.COLOR_BGR2GRAY)
             data = clahe.apply(data)
             self.images_original_data.append(data)
             self.save_processed_image(self.dataset_path, 'BASE', image_name.split('.')[0], data)
         # run algorithms with different specified parameters
-        with Pool(len(self.images_original)) as pool:
-            pool.map(self.process, self.algorithms)
+        for i, algorithm in enumerate(self.algorithms):
+            self.algo_index = i
+            algorithm.psnrs = [150] * len(self.images_paths)
+            algorithm.times = [0] * len(self.images_paths)
+            algorithm.cnts = [0] * len(self.images_paths)
+            with Pool(len(self.images_original)) as pool:
+                pool.map(self.process, [i for i in range(len(self.images_paths))])
+            algorithm.calcMeanPSNRS()
+            algorithm.calcMeanCNT()
+            print(algorithm.algorithm_name, algorithm.block, algorithm.compression)
+            print("PSNR mean:", algorithm.psnr, "CNT mean:", algorithm.cnt)
 
     def save_results(self):
         results = list()
@@ -536,7 +543,7 @@ def toimg(algoSequence):
 
 
 def calc():
-    comparator = Comparator(os.path.join(os.getcwd(), "dataset\\kodim"))
+    comparator = Comparator(os.path.join(os.getcwd(), "dataset"))
     comparator.list_images()
     comparator.load_images()
     for tile in range(8, 32, 2):
