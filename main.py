@@ -16,6 +16,13 @@ from multiprocessing import Pool
 PIXEL_MAX = 255.0
 
 
+class Result:
+    def __init__(self, psnr, cnt, time):
+        self.psnr = psnr
+        self.cnt = cnt
+        self.time = time
+
+
 class Comparator:
     def __init__(self, dataset_path):
         self.dataset_path = dataset_path
@@ -54,14 +61,13 @@ class Comparator:
         processed_image = clahe.apply(processed_image)
         psnr = self.compareProcessed(index, processed_image)
 
-        self.algorithms[self.algo_index].psnrs[index] = psnr
-        self.algorithms[self.algo_index].times[index] = working_time
-        self.algorithms[self.algo_index].cnts[index] = cnt
+        result = Result(psnr, cnt, working_time)
 
         self.algorithms[self.algo_index].save_processed_image(self.dataset_path,
                                                               image_name.split('.')[
                                                                   0] + f"_{self.algorithms[self.algo_index].block}_{self.algorithms[self.algo_index].compression}",
                                                               processed_image)
+        return result
 
     def run(self):
         clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
@@ -79,7 +85,10 @@ class Comparator:
             algorithm.times = [0] * len(self.images_paths)
             algorithm.cnts = [0] * len(self.images_paths)
             with Pool(len(self.images_original)) as pool:
-                pool.map(self.process, [i for i in range(len(self.images_paths))])
+                results = pool.map(self.process, [i for i in range(len(self.images_paths))])
+            algorithm.psnrs = [result.psnr for result in results]
+            algorithm.cnts = [result.cnt for result in results]
+            algorithm.times = [result.time for result in results]
             algorithm.calcMeanPSNRS()
             algorithm.calcMeanCNT()
             print(algorithm.algorithm_name, algorithm.block, algorithm.compression)
@@ -554,7 +563,7 @@ def calc():
     comparator.run()
     comparator.save_results()
 
-    with open(os.path.join(os.getcwd(), f"dataset\\results\\comparator_{comparator.algorithms[0].name}.pk"), 'wb') as f:
+    with open(os.path.join(os.getcwd(), f"dataset\\results\\comparator_{comparator.algorithms[0].algorithm_name}.pk"), 'wb') as f:
         pickle.dump(comparator, f)
 
 
