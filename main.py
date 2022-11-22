@@ -80,7 +80,7 @@ class Comparator:
         df.to_excel(os.path.join(self.dataset_path, 'results', 'report.xlsx'))
 
     def compareProcessed(self, i, processed_image):
-        mse = np.mean((self.images_original_data[i] - processed_image) ** 2)
+        mse = np.mean((self.images_original_data[i] - processed_image) ** 2)/(self.images_original[i].height*self.images_original[i].width)
         if mse == 0:
             return 100
         return 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
