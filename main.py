@@ -545,8 +545,9 @@ def toimg(algoSequence):
             x2 += 1
         y += 1
     print(outputNp)
+    outputNp = np.transpose(outputNp)
     fig, ax = plt.subplots()
-    ax.imshow(outputNp, extent=[0, 0.4, 32, 8])
+    ax.imshow(outputNp, extent=[32, 8,0, 0.4])
     ax.set_aspect(0.05)
     return output
 
