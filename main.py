@@ -74,7 +74,7 @@ class Comparator:
         # prepare base images
         for i, image_name in enumerate(self.images_paths):
             data = np.asarray(self.images_original[i]).astype("uint8")
-            data = cv.cvtColor(data, cv.COLOR_BGR2GRAY)
+            # data = cv.cvtColor(data, cv.COLOR_BGR2GRAY)
             data = clahe.apply(data)
             self.images_original_data.append(data)
             self.save_processed_image(self.dataset_path, 'BASE', image_name.split('.')[0], data)
@@ -104,7 +104,8 @@ class Comparator:
         df.to_excel(os.path.join(self.dataset_path, 'results', 'report.xlsx'))
 
     def compareProcessed(self, i, processed_image):
-        mse = np.mean((self.images_original_data[i] - processed_image) ** 2)/(self.images_original[i].height*self.images_original[i].width)
+        mse = np.mean((self.images_original_data[i] - processed_image) ** 2) / (
+                self.images_original[i].height * self.images_original[i].width)
         if mse == 0:
             return 100
         return 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
@@ -501,7 +502,7 @@ class DWT_NonTiled(Utils):
         return result, cnt
 
 
-def toimg(algoSequence):
+def toimg(comparator):
     maxPsnr = 0.0
     maxTime = 0.0
     maxEfficiency = 0.0
@@ -510,10 +511,11 @@ def toimg(algoSequence):
     y = 0
     output = []
 
-    for tile in range(8, 32, 2):
+    for tile in range(comparator.tileStart, comparator.tileStop, comparator.tileStep):
         outputx = []
-        for compress in np.arange(0, 0.5, 0.1):
-            algo = algoSequence[cnt]
+        for compress in np.arange(comparator.compressStart, comparator.compressStop,
+                                  comparator.compressStep):
+            algo = comparator.algorithms[cnt]
             efficiency = algo.psnr * algo.cnt
             maxEfficiency = np.maximum(efficiency, maxEfficiency)
             print(algo.psnr)
@@ -529,9 +531,10 @@ def toimg(algoSequence):
     x2 = 0
     y = 0
     outputNp = np.zeros([len(output), len(output[0]), 3], dtype=float)
-    for tile in range(8, 32, 2):
+    for tile in range(comparator.tileStart, comparator.tileStop, comparator.tileStep):
         x2 = 0
-        for compress in np.arange(0, 0.5, 0.1):
+        for compress in np.arange(comparator.compressStart, comparator.compressStop,
+                                  comparator.compressStep):
             efficiency = output[y][x2][0] * output[y][x2][1]
             output[y][x2][0] /= maxPsnr
             output[y][x2][2] = 1.0 - output[y][x2][2] / maxTime
@@ -545,31 +548,23 @@ def toimg(algoSequence):
             x2 += 1
         y += 1
     print(outputNp)
-    outputNp = np.transpose(outputNp)
+    outputNp = np.transpose(outputNp, (1, 0, 2))
     fig, ax = plt.subplots()
-    ax.imshow(outputNp, extent=[32, 8,0, 0.4])
-    ax.set_aspect(0.05)
+    ax.imshow(outputNp,
+              extent=[comparator.tileStart, comparator.tileStop, comparator.compressStop,
+                      comparator.compressStart])
+    ax.set_aspect(20)
+    ax.set_ylabel("С")
+    ax.set_xlabel("T")
+    plt.yticks([i for i in np.arange(comparator.compressStart, comparator.compressStop + comparator.compressStep,
+                                     comparator.compressStep)])
+    plt.xticks([i for i in range(comparator.tileStart, comparator.tileStop + comparator.tileStep, comparator.tileStep)])
+    plt.grid(True)
     return output
 
 
-def calc():
-    comparator = Comparator(os.path.join(os.getcwd(), "dataset/kodim"))
-    comparator.list_images()
-    comparator.load_images()
-    for tile in range(8, 32, 2):
-        for compress in np.arange(0, 0.5, 0.1):
-            algo = FFT_Trivial(tile, compress)
-            comparator.add_algo(algo)
-
-    comparator.run()
-    comparator.save_results()
-
-    with open(os.path.join(os.getcwd(), f"dataset/results/comparator_{comparator.algorithms[0].algorithm_name}.pk"), 'wb') as f:
-        pickle.dump(comparator, f)
-
-
 def show_pixels(comparator):
-    out = toimg(comparator.algorithms)
+    out = toimg(comparator)
     plt.show()
 
 
@@ -581,11 +576,44 @@ def print_min_pnsr(comparator):
     print(min_psnr)
 
 
+def print_max_cnt(comparator):
+    max_cnt = 0.0
+    for cnt in [algorithm.cnt for algorithm in comparator.algorithms]:
+        if max_cnt < cnt:
+            max_cnt = cnt
+    print(max_cnt)
+
+
+def calc():
+    comparator = Comparator(os.path.join(os.getcwd(), "dataset/"))
+    comparator.list_images()
+    comparator.load_images()
+    comparator.tileStart = 8
+    comparator.tileStop = 128
+    comparator.tileStep = 8
+    comparator.compressStart = 0.0
+    comparator.compressStop = 0.5
+    comparator.compressStep = 0.1
+    for tile in range(comparator.tileStart, comparator.tileStop, comparator.tileStep):
+        for compress in np.arange(comparator.compressStart, comparator.compressStop,
+                                  comparator.compressStep):
+            algo = DWT_Trivial(tile, compress)
+            comparator.add_algo(algo)
+
+    comparator.run()
+    comparator.save_results()
+
+    with open(os.path.join(os.getcwd(), f"dataset/results/comparator_{comparator.algorithms[0].algorithm_name}.pk"),
+              'wb') as f:
+        pickle.dump(comparator, f)
+
+
 if __name__ == '__main__':
-    calc()
+    # calc()
     comparator = None
-    with open(os.path.join(os.getcwd(), "dataset/results/comparator_FFT_Trivial.pk"), 'rb') as f:
+    with open(os.path.join(os.getcwd(), "dataset/results/comparator_DWT_Trivial.pk"), 'rb') as f:
         comparator = pickle.load(f)
 
-    show_pixels(comparator)
     print_min_pnsr(comparator)
+    print_max_cnt(comparator)
+    show_pixels(comparator)
