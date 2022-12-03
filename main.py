@@ -230,14 +230,14 @@ class Utils(Algorithm):
         dctList = []
         for i in range(len(tiles)):
             imf = np.float32(tiles[i]) / 255.0  # float conversion/scale
-            output = pywt.wavedec2(imf, 'db2')
+            output = pywt.wavedec2(imf, 'haar')
             dctList.append(output)
         return dctList
 
     def getIDWT(self, tiles, tileSize):
         idcttiles = np.zeros([len(tiles), tileSize, tileSize])
         for i in range(len(tiles)):
-            inverse = pywt.waverec2(tiles[i], 'db2') * 255.0
+            inverse = pywt.waverec2(tiles[i], 'haar') * 255.0
             idcttiles[i] = inverse
         return idcttiles
 
@@ -449,13 +449,19 @@ class DWT_NonTiled(Utils):
         image = cv.imread(image_path)
         image = np.asarray(image).astype("uint8")
         image_data = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-        coeffs = pywt.dwt2(image_data, 'haar')
+        coeffs = pywt.wavedec2(image_data / 255.0, 'haar')
         cnt = 0
-        for i in range(len(coeffs)):
-            if np.abs(coeffs[i]) > self.compression:
-                coeffs[i] = 0.0
-                cnt += 1
-        result = pywt.idwt2(coeffs, 'haar')
+        cnt2 = 0
+        for j in range(1, len(coeffs)):
+            for k in range(len(coeffs[j])):
+                for k2 in range(len(coeffs[j][k])):
+                    for k3 in range(len(coeffs[j][k][k2])):
+                        cnt2 += 1
+                        if np.abs(coeffs[j][k][k2][k3]) < self.compression:
+                            coeffs[j][k][k2][k3] = 0.0
+                            cnt += 1
+        result = pywt.waverec2(coeffs, 'haar')*255.0
+        cnt = cnt / (cnt2 + len(coeffs))
         return result, cnt
 
 
@@ -551,12 +557,13 @@ def calc():
     comparator.compressStart = 0.0
     comparator.compressStop = 0.5
     comparator.compressStep = 0.1
-    for tile in range(comparator.tileStart, comparator.tileStop, comparator.tileStep):
-        for compress in np.arange(comparator.compressStart, comparator.compressStop,
-                                  comparator.compressStep):
-            algo = DWT_NonTiled(tile, compress)
-            comparator.add_algo(algo)
-
+    #for tile in range(comparator.tileStart, comparator.tileStop, comparator.tileStep):
+    #    for compress in np.arange(comparator.compressStart, comparator.compressStop,
+    #                              comparator.compressStep):
+    #        algo = DWT_NonTiled(tile, compress)
+    #        comparator.add_algo(algo)
+    comparator.add_algo(DWT_NonTiled(0, 0.4))
+    comparator.add_algo(DWT_NonTiled(0, 10.5))
     comparator.run()
     comparator.save_results()
 
