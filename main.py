@@ -104,7 +104,7 @@ class Comparator:
         df.to_excel(os.path.join(self.dataset_path, 'results', 'report.xlsx'))
 
     def compareProcessed(self, i, processed_image):
-        mse = np.mean((self.images_original_data[i] - processed_image) ** 2)
+        mse = np.mean((self.images_original_data[i] - processed_image) ** 2)/(self.images_original[i].height*self.images_original[i].width)
         if mse == 0:
             return 100
         return 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
@@ -537,9 +537,9 @@ def toimg(algoSequence):
             output[y][x2][2] = 1.0 - output[y][x2][2] / maxTime
 
             if np.abs(efficiency - maxEfficiency) < 0.2:
-                output[y][x2][2] = 255.0
-                output[y][x2][1] = 255.0
-                output[y][x2][0] = 255.0
+                output[y][x2][2] = 1.0
+                output[y][x2][1] = 1.0
+                output[y][x2][0] = 1.0
                 print('Perfect parameters: compression:', compress, 'tile:', tile)
             outputNp[y, x2] = output[y][x2]
             x2 += 1
