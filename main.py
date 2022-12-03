@@ -11,8 +11,6 @@ from PIL import Image
 from matplotlib import pyplot as plt
 from multiprocessing import Pool
 
-# from oct2py import Oct2Py
-
 PIXEL_MAX = 255.0
 
 
@@ -145,23 +143,6 @@ class Algorithm:
             self.cnt += value / (len(self.cnts))
 
 
-class OctaveAlgorithm(Algorithm):
-    def __init__(self, name, path):
-        super().__init__(name)
-        self.octave = Oct2Py()
-        self.octave.eval("pkg load image")
-        self.octave.eval("pkg load signal")
-        # self.octave.eval("pkg load cvx") # TODO: check this
-        self.octave.addpath(path)
-
-
-class CompressedSensing(OctaveAlgorithm):
-    def __init__(self, name, block, compression):
-        super().__init__(name, os.path.join(os.getcwd(), "plugins", "compressed_sensing"))
-        self.block = block
-        self.compression = compression
-
-
 class JPEG_algorithm(Algorithm):
     def __init__(self, compression):
         super().__init__("JPEG")
@@ -173,30 +154,6 @@ class JPEG_algorithm(Algorithm):
         _, enc = cv.imencode('.jpg', img, encode_param)
         decimg = cv.imdecode(enc, 1)
         return cv.cvtColor(decimg, cv.COLOR_BGR2GRAY)
-
-
-class CFFT_algorithm(CompressedSensing):
-    def __init__(self, block, compression):
-        super().__init__("CFFT", block, compression)
-
-    def run(self, image_path, width, height):
-        return self.octave.CFFT(image_path, width, height, self.block, self.compression)
-
-
-class CDCT_algorithm(CompressedSensing):
-    def __init__(self, block, compression):
-        super().__init__("CDCT", block, compression)
-
-    def run(self, image_path, width, height):
-        return self.octave.CDCT(image_path, width, height, self.block, self.compression)
-
-
-class L1_algorithm(CompressedSensing):
-    def __init__(self, block, compression):
-        super().__init__("L1", block, compression)
-
-    def run(self, image_path, width, height):
-        return self.octave.L1(image_path, width, height, self.block, self.compression)
 
 
 class Utils(Algorithm):
@@ -539,7 +496,7 @@ def toimg(comparator):
             output[y][x2][0] /= maxPsnr
             output[y][x2][2] = 1.0 - output[y][x2][2] / maxTime
 
-            if np.abs(efficiency - maxEfficiency) < 0.2:
+            if np.abs(efficiency - maxEfficiency) < 0.07:
                 output[y][x2][2] = 1.0
                 output[y][x2][1] = 1.0
                 output[y][x2][0] = 1.0
@@ -547,13 +504,13 @@ def toimg(comparator):
             outputNp[y, x2] = output[y][x2]
             x2 += 1
         y += 1
-    print(outputNp)
+    # print(outputNp)
     outputNp = np.transpose(outputNp, (1, 0, 2))
     fig, ax = plt.subplots()
     ax.imshow(outputNp,
               extent=[comparator.tileStart, comparator.tileStop, comparator.compressStop,
                       comparator.compressStart])
-    ax.set_aspect(int(comparator.tileStop*comparator.compressStop))
+    ax.set_aspect(int(comparator.tileStop * comparator.compressStop))
     ax.set_ylabel("С")
     ax.set_xlabel("T")
     plt.yticks([i for i in np.arange(comparator.compressStart, comparator.compressStop + comparator.compressStep,
@@ -597,7 +554,7 @@ def calc():
     for tile in range(comparator.tileStart, comparator.tileStop, comparator.tileStep):
         for compress in np.arange(comparator.compressStart, comparator.compressStop,
                                   comparator.compressStep):
-            algo = DWT_Trivial(tile, compress)
+            algo = DWT_NonTiled(tile, compress)
             comparator.add_algo(algo)
 
     comparator.run()
@@ -609,11 +566,11 @@ def calc():
 
 
 if __name__ == '__main__':
-    # calc()
+    calc()
     comparator = None
-    with open(os.path.join(os.getcwd(), "dataset/results/comparator_DWT_Trivial.pk"), 'rb') as f:
+    with open(os.path.join(os.getcwd(), "dataset/results/comparator_DWT_NonTiled.pk"), 'rb') as f:
         comparator = pickle.load(f)
 
+    show_pixels(comparator)
     print_min_pnsr(comparator)
     print_max_cnt(comparator)
-    show_pixels(comparator)
