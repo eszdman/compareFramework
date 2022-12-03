@@ -553,7 +553,7 @@ def toimg(comparator):
     ax.imshow(outputNp,
               extent=[comparator.tileStart, comparator.tileStop, comparator.compressStop,
                       comparator.compressStart])
-    ax.set_aspect(20)
+    ax.set_aspect(int(comparator.tileStop*comparator.compressStop))
     ax.set_ylabel("С")
     ax.set_xlabel("T")
     plt.yticks([i for i in np.arange(comparator.compressStart, comparator.compressStop + comparator.compressStep,
