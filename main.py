@@ -460,7 +460,7 @@ class DWT_NonTiled(Utils):
                         if np.abs(coeffs[j][k][k2][k3]) < self.compression:
                             coeffs[j][k][k2][k3] = 0.0
                             cnt += 1
-        result = pywt.waverec2(coeffs, 'haar')*255.0
+        result = pywt.waverec2(coeffs, 'haar') * 255.0
         cnt = cnt / (cnt2 + len(coeffs))
         return result, cnt
 
@@ -468,8 +468,8 @@ class DWT_NonTiled(Utils):
 def toimg(comparator):
     maxPsnr = 0.0
     maxTime = 0.0
-    maxEfficiency = [0.0]*np.arange(comparator.compressStart, comparator.compressStop,
-                                  comparator.compressStep).size
+    maxEfficiency = [0.0] * np.arange(comparator.compressStart, comparator.compressStop,
+                                      comparator.compressStep).size
     minPsnr = 1000
     minTime = 1000
     minEfficiency = 1000
@@ -494,10 +494,10 @@ def toimg(comparator):
             outputx.append([algo.psnr, algo.cnt, avrTime])
             maxPsnr = np.maximum(algo.psnr, maxPsnr)
             maxTime = np.maximum(avrTime, maxTime)
-            minPsnr = np.minimum(algo.psnr,minPsnr)
+            minPsnr = np.minimum(algo.psnr, minPsnr)
             minTime = np.minimum(avrTime, minTime)
             minEfficiency = np.minimum(efficiency, minEfficiency)
-            minCnt = np.minimum(efficiency, minCnt)
+            minCnt = np.minimum(algo.cnt, minCnt)
             cnt += 1
             x2 += 1
         output.append(outputx)
@@ -509,14 +509,15 @@ def toimg(comparator):
         for compress in np.arange(comparator.compressStart, comparator.compressStop,
                                   comparator.compressStep):
             efficiency = output[y][x2][0] * output[y][x2][1]
-            output[y][x2][0] = (output[y][x2][0]-minPsnr)/(maxPsnr-minPsnr)
-            output[y][x2][2] = 1.0 - (output[y][x2][2]-minTime) / (maxTime-minTime)
-            output[y][x2][1] = (output[y][x2][1]-minCnt)*(output[y][x2][1]-minCnt)/((1.0-minCnt)**2)
+            output[y][x2][0] = (output[y][x2][0] - minPsnr) / (maxPsnr - minPsnr)
+            output[y][x2][2] = 1.0 - (output[y][x2][2] - minTime) / (maxTime - minTime)
+            output[y][x2][1] = (output[y][x2][1] - minCnt) * (output[y][x2][1] - minCnt) / ((1.0 - minCnt) ** 2)
             if np.abs(efficiency - maxEfficiency[x2]) < 0.02:
+                print('Perfect parameters: compression:', compress, 'tile:', tile, 'PSNR:', output[y][x2][0], 'cnt:',
+                      output[y][x2][1])
                 output[y][x2][2] = 1.0
                 output[y][x2][1] = 1.0
                 output[y][x2][0] = 1.0
-                print('Perfect parameters: compression:', compress, 'tile:', tile)
             outputNp[y, x2] = output[y][x2]
             x2 += 1
         y += 1
@@ -557,6 +558,14 @@ def print_max_cnt(comparator):
     print(max_cnt)
 
 
+def comparatorRange(comparator2, algorithm):
+    for tile in range(comparator2.tileStart, comparator2.tileStop, comparator2.tileStep):
+        for compress in np.arange(comparator2.compressStart, comparator2.compressStop,
+                                  comparator2.compressStep):
+            algo = algorithm(tile, compress)
+            comparator2.add_algo(algo)
+
+
 def calc():
     comparator = Comparator(os.path.join(os.getcwd(), "dataset/kodim/"))
     comparator.list_images()
@@ -567,13 +576,10 @@ def calc():
     comparator.compressStart = 0.1
     comparator.compressStop = 0.9
     comparator.compressStep = 0.1
-    for tile in range(comparator.tileStart, comparator.tileStop, comparator.tileStep):
-        for compress in np.arange(comparator.compressStart, comparator.compressStop,
-                                  comparator.compressStep):
-            algo = DCT_CosineWindow(tile, compress)
-            comparator.add_algo(algo)
-    #comparator.add_algo(DWT_NonTiled(0, 0.4))
-    #comparator.add_algo(DWT_NonTiled(0, 2))
+    comparatorRange(comparator, DCT_Trivial)
+    # comparator.add_algo(DCT_CosineWindow(8, 0.4))
+    # comparator.add_algo(DCT_CosineWindow(64, 0.4))
+    # comparator.add_algo(DWT_NonTiled(0, 2))
     comparator.run()
     comparator.save_results()
 
@@ -583,9 +589,9 @@ def calc():
 
 
 if __name__ == '__main__':
-    #calc()
+    calc()
     comparator = None
-    with open(os.path.join(os.getcwd(), "dataset/results/comparator_DCT_CosineWindow.pk"), 'rb') as f:
+    with open(os.path.join(os.getcwd(), "dataset/results/comparator_DCT_Trivial.pk"), 'rb') as f:
         comparator = pickle.load(f)
 
     show_pixels(comparator)
